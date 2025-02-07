@@ -1,16 +1,15 @@
-"use client"
+// components/Checkbox.jsx
 import { useState } from "react"
 
-export function Checkbox() {
-  const [mark,setmark]=useState(false)
+export function Checkbox({ checked, onChange }) {
 
-    return (
-      <input
-        type="checkbox"
-        checked={mark}
-        onChange={(e) =>setmark(!mark)}
-        className="w-5 h-5 accent-blue-600 cursor-pointer"
-      />
-    );
-  }
-  
+
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={onChange}
+      className="w-5 h-5 accent-blue-600 cursor-pointer"
+    />
+  );
+}

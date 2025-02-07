@@ -28,21 +28,27 @@ export default function LearningPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  
-  const storedata =(topics)=>{
+
+  const storedata = (topics) => {
     console.log(topics);
     if (typeof window !== "undefined") {
-      localStorage.setItem("mytaskdata", JSON.stringify(topics));
+      localStorage.setItem("mytaskdata", JSON.stringify({ topic: title, body: topics }));
+      console.log("Saved Successfully")
     }
 
   }
 
-  const viewdata =()=>{
+
+  const viewdata = () => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("mytaskdata", JSON.stringify(topics));
+      const storedData = localStorage.getItem("mytaskdata");
+      const Data = JSON.parse(storedData)
+      console.log(Data)
+      setTopics(Data.body)
     }
 
   }
+
 
   const fetchSuggestions = async (query) => {
     if (!query) {
@@ -79,21 +85,28 @@ export default function LearningPage() {
     setError(null);
     setTopics([])
     console.log(selectedDifficulty)
-    const selectedDifficulties = selectedDifficulty ? [selectedDifficulty] :[];
+    const selectedDifficulties = selectedDifficulty ? [selectedDifficulty] : ["medium"];
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, difficulty: selectedDifficulties }),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to generate topics");
       }
-      
+
       const data = await response.json();
-      setTopics(data.topics);
+
+      // Initialize subtopics with a 'completed' status
+      const initialTopics = data.topics.map(topic => ({
+        ...topic,
+        editable:false,
+        subtopics: topic.subtopics.map(subtopic => ({ name: subtopic, completed: false }))
+      }));
+      setTopics(initialTopics);
     } catch (err) {
       console.error("Error fetching data:", err);
       setError(err.message);
@@ -107,11 +120,47 @@ export default function LearningPage() {
     router.push(`/resources?${queryString}`);
   };
 
+
+  const toggleSubtopicCompletion = (topicIndex, subtopicIndex) => {
+    setTopics(prevTopics => {
+      const newTopics = [...prevTopics];
+      newTopics[topicIndex] = {
+        ...newTopics[topicIndex],
+        subtopics: newTopics[topicIndex].subtopics.map((subtopic, index) =>
+          index === subtopicIndex ? { ...subtopic, completed: !subtopic.completed } : subtopic
+        )
+      };
+
+       // Save to local storage here
+       if (typeof window !== 'undefined') {
+        localStorage.setItem("mytaskdata", JSON.stringify({ topic: title, body: newTopics }));
+      }
+      return newTopics;
+    });
+  };
+
+  const handleTopicNameChange = (topicIndex, newName) => {
+    setTopics(prevTopics => {
+      const newTopics = [...prevTopics];
+      newTopics[topicIndex] = { ...newTopics[topicIndex], name: newName };
+      return newTopics;
+    });
+  };
+
+  const  handleedit =(topicIndex)=>{
+    setTopics(prevTopics => {
+      const newTopics = [...prevTopics];
+      newTopics[topicIndex] = {... newTopics[topicIndex],editable:!newTopics[topicIndex].editable}
+      return newTopics;
+    });
+  }
+
+
   return (
     <div className="max-w-2xl mx-auto p-6">
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }} 
-        animate={{ opacity: 1, y: 0 }} 
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         className="p-6 space-y-4 border rounded-lg shadow-md relative bg-white"
       >
@@ -123,9 +172,9 @@ export default function LearningPage() {
             className="p-3 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
           {suggestions.length > 0 && (
-            <motion.ul 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
+            <motion.ul
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               className="absolute bg-white border rounded-lg shadow-md mt-1 w-full max-h-40 overflow-auto z-10"
             >
               {suggestions.map((suggestion, index) => (
@@ -143,60 +192,81 @@ export default function LearningPage() {
         <div className="flex gap-4">
           {["easy", "medium", "hard"].map((level) => (
             <label key={level} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={selectedDifficulty===level}
-                  onChange={() =>setSelectedDifficulty(level)}
-                  className="w-5 h-5 accent-blue-600 cursor-pointer"
-                />
-               {level.charAt(0).toUpperCase() + level.slice(1)}
+              <input
+                type="checkbox"
+                checked={selectedDifficulty === level}
+                onChange={() => {
+                  if (level === selectedDifficulty) { setSelectedDifficulty('') }
+                  else {
+                    setSelectedDifficulty(level)
+                  }
+                }}
+                className="w-5 h-5 accent-blue-600 cursor-pointer"
+              />
+              {level.charAt(0).toUpperCase() + level.slice(1)}
             </label>
-        
+
           ))}
         </div>
         <Button onClick={handleSubmit} className="w-full transition-all transform hover:scale-105 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg" disabled={loading}>
           {loading ? "Searching..." : "Search"}
         </Button >
         <div className="flex gap-2">
-        <Button 
-          className="flex-1 transition-all transform hover:scale-105 bg-green-700 hover:bg-green-800 text-white font-bold py-2 px-4 rounded-lg" disabled={loading}
-          onClick={storedata()}
-        >
+          <Button
+            className="flex-1 transition-all transform hover:scale-105 bg-green-700 hover:bg-green-800 text-white font-bold py-2 px-4 rounded-lg" disabled={loading}
+            onClick={() => storedata(topics)}
+          >
             Save Tasks
-        </Button>
-        <Button 
-          className="flex-1 transition-all transform hover:scale-105 bg-green-700 hover:bg-green-800 text-white font-bold py-2 px-4 rounded-lg" disabled={loading}
-          onClick={viewdata()}
-        >
-             View Saved Tasks
-        </Button>
+          </Button>
+          <Button
+            className="flex-1 transition-all transform hover:scale-105 bg-green-700 hover:bg-green-800 text-white font-bold py-2 px-4 rounded-lg" disabled={loading}
+            onClick={() => viewdata()}
+          >
+            View Saved Tasks
+          </Button>
         </div>
         {error && <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-red-500 mt-2">{error}</motion.p>}
       </motion.div>
       {topics.length > 0 && (
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }} 
-          animate={{ opacity: 1, y: 0 }} 
-          transition={{ duration: 0.5 }} 
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
           className="mt-6 space-y-4"
         >
-          {topics.map((topic, index) => (
-            <motion.div 
-              key={index} 
-              whileHover={{ scale: 1.02 }} 
+          {topics.map((topic, topicIndex) => (
+            <motion.div
+              key={topicIndex}
+              whileHover={{ scale: 1.02 }}
               className="p-4 border rounded-lg shadow-md"
             >
-              <h2 className="text-lg font-semibold">{topic.name}</h2>
+              {topic.editable ? (
+                <Input
+                  type="text"
+                  value={topic.name}
+                  onChange={(e) => handleTopicNameChange(topicIndex, e.target.value)}
+                  onBlur={()=>handleedit(topicIndex)}
+                  className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              ) : (
+                <div className="flex items-center">
+                  <h2 className="text-lg font-semibold flex-grow">{topic.name}</h2>
+                  <Button onClick={()=>handleedit(topicIndex)}>Edit</Button>
+                </div>
+              )}
               <div className="space-y-2 mt-2">
-                {topic.subtopics.map((sub, i) => (
+                {topic.subtopics.map((subtopic, subtopicIndex) => (
                   <div
-                    key={i}
+                    key={subtopicIndex}
                     className="p-2 cursor-pointer hover:bg-gray-100 rounded-lg flex items-center gap-2"
-                    
+
                   >
-                    <Checkbox />
+                    <Checkbox
+                      checked={subtopic.completed}
+                      onChange={() => toggleSubtopicCompletion(topicIndex, subtopicIndex)}
+                    />
                     <div onClick={() => handleTopicClick(topic.name)}>
-                    {sub}
+                      {subtopic.name}
                     </div>
                   </div>
                 ))}
