@@ -11,7 +11,7 @@ import { Input } from "../components/input";
 export default function LearningPage() {
   const [title, setTitle] = useState("");
   const [suggestions, setSuggestions] = useState([]);
-  const [selectedDifficulty, setSelectedDifficulty] = useState(null);
+  const [selectedDifficulty, setSelectedDifficulty] = useState('');
   const [topics, setTopics] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -28,10 +28,7 @@ export default function LearningPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleDifficultyChange = (level) => {
-    setSelectedDifficulty(level === selectedDifficulty ? null : level);
-  };
-
+  
   const storedata =(topics)=>{
     console.log(topics);
     if (typeof window !== "undefined") {
@@ -41,6 +38,7 @@ export default function LearningPage() {
   }
 
   const viewdata =()=>{
+    localStorage.setItem("mytaskdata", JSON.stringify(topics));
 
   }
 
@@ -78,7 +76,8 @@ export default function LearningPage() {
     setLoading(true);
     setError(null);
     setTopics([])
-    const selectedDifficulties = selectedDifficulty ? [selectedDifficulty] : [];
+    console.log(selectedDifficulty)
+    const selectedDifficulties = selectedDifficulty ? [selectedDifficulty] :[];
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
@@ -142,12 +141,15 @@ export default function LearningPage() {
         <div className="flex gap-4">
           {["easy", "medium", "hard"].map((level) => (
             <label key={level} className="flex items-center gap-2">
-              <Checkbox
-                checked={selectedDifficulty === level}
-                onCheckedChange={() => handleDifficultyChange(level)}
-              />
-              {level.charAt(0).toUpperCase() + level.slice(1)}
+                <input
+                  type="checkbox"
+                  checked={selectedDifficulty===level}
+                  onChange={() =>setSelectedDifficulty(level)}
+                  className="w-5 h-5 accent-blue-600 cursor-pointer"
+                />
+               {level.charAt(0).toUpperCase() + level.slice(1)}
             </label>
+        
           ))}
         </div>
         <Button onClick={handleSubmit} className="w-full transition-all transform hover:scale-105 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg" disabled={loading}>
