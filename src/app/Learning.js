@@ -38,7 +38,9 @@ export default function LearningPage() {
   }
 
   const viewdata =()=>{
-    localStorage.setItem("mytaskdata", JSON.stringify(topics));
+    if (typeof window !== "undefined") {
+      localStorage.setItem("mytaskdata", JSON.stringify(topics));
+    }
 
   }
 
