@@ -265,7 +265,7 @@ export default function LearningPage() {
                       checked={subtopic.completed}
                       onChange={() => toggleSubtopicCompletion(topicIndex, subtopicIndex)}
                     />
-                    <div onClick={() => handleTopicClick(topic.name)}>
+                    <div onClick={() => handleTopicClick(subtopic.name+" in "+topic.name)}>
                       {subtopic.name}
                     </div>
                   </div>
