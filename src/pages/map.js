@@ -1,4 +1,5 @@
 "use client";
+import "../app/globals.css";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from 'next/navigation';
 import Link from "next/link";
@@ -100,7 +101,6 @@ export default function LearningPage() {
 
       const data = await response.json();
 
-      // Initialize subtopics with a 'completed' status
       const initialTopics = data.topics.map(topic => ({
         ...topic,
         editable:false,
@@ -265,7 +265,7 @@ export default function LearningPage() {
                       checked={subtopic.completed}
                       onChange={() => toggleSubtopicCompletion(topicIndex, subtopicIndex)}
                     />
-                    <div onClick={() => handleTopicClick(subtopic.name+" in "+topic.name)}>
+                    <div onClick={() => handleTopicClick(subtopic.name+" in "+topic.name+"ref of header:"+title)}>
                       {subtopic.name}
                     </div>
                   </div>

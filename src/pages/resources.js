@@ -10,6 +10,7 @@ export default function TopicDetailsPage() {
   const [content, setContent] = useState(null);
   const searchParams = useSearchParams();
   const topic = searchParams.get("find");
+  const [click, setClick] = useState(null); // Store index of clicked subtopic
 
   useEffect(() => {
     if (topic) {
@@ -31,13 +32,13 @@ export default function TopicDetailsPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to fetch topic details");
+        throw new Error("Failed to fetch topic details. Please try again.");
       }
 
       const data = await response.json();
       setContent(data);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "An unexpected error occurred.");
     } finally {
       setLoading(false);
     }
@@ -82,21 +83,46 @@ export default function TopicDetailsPage() {
 
           {/* Description */}
           <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-            <h2 className="text-2xl font-semibold mb-4 text-gray-900">
-              Description
-            </h2>
-            <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-              {content.describe}
-            </p>
+            <h2 className="text-2xl font-semibold mb-4 text-gray-900">Description</h2>
+            <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{content.describe}</p>
           </div>
+
+          {/* Sub Topics */}
+          {content.subtopics &&
+          <div className="space-y-4">
+            {content.subtopics.map((example, index) => (
+              <div key={index} className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+                <button
+                  onClick={() => setClick(click === index ? null : index)}
+                  className="w-full text-left flex items-center justify-between"
+                >
+                  <span className="text-xl font-semibold text-gray-900">➡️ {example.subtop}</span>
+                  <span className="text-sm text-gray-500">{click === index ? "Hide" : "Show"}</span>
+                </button>
+
+                {click === index && (
+                  <div className="mt-4">
+                    <p className="text-gray-700">{example.subexplain}</p>
+                    <pre className="bg-gray-900 text-white p-4 rounded-lg overflow-x-auto text-sm mt-4">
+                        <code>{example.subexample}</code>
+                    </pre>                  
+              <ul className="mt-4 list-disc pl-6 text-gray-700">
+                      {example.exmexplain.map((point, idx) => (
+                        <li key={idx}>{point}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+}
 
           {/* Examples */}
           <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-            <h2 className="text-2xl font-semibold mb-4 text-gray-900">
-              Examples
-            </h2>
+            <h2 className="text-2xl font-semibold mb-4 text-gray-900">Points To Know</h2>
             <ul className="list-disc list-inside space-y-2 text-gray-700">
-              {content.examples.map((example, index) => (
+              {content.points.map((example, index) => (
                 <li key={index} className="leading-relaxed">
                   {example}
                 </li>
@@ -104,29 +130,21 @@ export default function TopicDetailsPage() {
             </ul>
           </div>
 
-          {/* Code Section (if applicable) */}
+          {/* Code Section */}
           {content.code && content.code.topicofcode && content.code.tcode && (
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-              <h2 className="text-2xl font-semibold mb-4 text-gray-900">
-                Implementation
-              </h2>
-              <h3 className="text-lg font-semibold text-gray-800">
-                {content.code.topicofcode}
-              </h3>
+              <h2 className="text-2xl font-semibold mb-4 text-gray-900">Implementation</h2>
+              <h3 className="text-lg font-semibold text-gray-800">{content.code.topicofcode}</h3>
               <pre className="bg-gray-900 text-white p-4 rounded-lg overflow-x-auto text-sm mt-4">
                 <code>{content.code.tcode}</code>
               </pre>
               {content.define && (
                 <div className="mt-6">
-                  <h3 className="text-xl font-semibold mb-3 text-gray-900">
-                    Code Explanation
-                  </h3>
+                  <h3 className="text-xl font-semibold mb-3 text-gray-900">Code Explanation</h3>
                   <ul className="list-disc pl-6 space-y-3 text-gray-700">
                     {content.define.map((def, index) => (
                       <li key={index} className="leading-relaxed">
-                        <code className="font-mono bg-gray-100 px-2 py-1 rounded">
-                          {def.code}
-                        </code>
+                        <code className="font-mono bg-gray-100 px-2 py-1 rounded">{def.code}</code>
                         <p className="mt-1">{def.explain}</p>
                       </li>
                     ))}
@@ -138,9 +156,7 @@ export default function TopicDetailsPage() {
 
           {/* Importance */}
           <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-            <h2 className="text-2xl font-semibold mb-4 text-gray-900">
-              Key Points & Importance
-            </h2>
+            <h2 className="text-2xl font-semibold mb-4 text-gray-900">Key Points & Importance</h2>
             <ul className="space-y-3">
               {content.importance.map((point, index) => (
                 <li key={index} className="flex items-start">
@@ -155,24 +171,12 @@ export default function TopicDetailsPage() {
 
           {/* Reference Articles */}
           <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-            <h2 className="text-2xl font-semibold mb-4 text-gray-900">
-              Reference Articles
-            </h2>
+            <h2 className="text-2xl font-semibold mb-4 text-gray-900">Reference Articles</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {content.article.map((article, index) => (
-                <div
-                  key={index}
-                  className="bg-blue-50 p-4 rounded-lg shadow-sm border border-blue-200 hover:shadow-md transition-shadow"
-                >
-                  <h3 className="text-lg font-semibold text-blue-800 mb-2">
-                    {article.urltopic}
-                  </h3>
-                  <a
-                    href={article.Url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
-                  >
+                <div key={index} className="bg-blue-50 p-4 rounded-lg shadow-sm border border-blue-200 hover:shadow-md transition-shadow">
+                  <h3 className="text-lg font-semibold text-blue-800 mb-2">{article.urltopic}</h3>
+                  <a href={article.Url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                     Read More
                   </a>
                 </div>
