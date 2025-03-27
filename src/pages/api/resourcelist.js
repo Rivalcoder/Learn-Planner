@@ -155,7 +155,7 @@ export default async function handler(req, res) {
             `;
     console.log("Entered APi")
     const result = await generateObject({
-      model: google('gemini-1.5-flash-latest'),
+      model: google('gemini-2.0-flash-exp'),
       schema: topicSchema,
       prompt: promptWithTopic,
       apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
