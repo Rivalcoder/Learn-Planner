@@ -14,16 +14,8 @@ const topicSchema = z.object({
     subexample: z.string(),
     exmexplain: z.array(z.string())
   })).default([]),
-  keyFeatures: z.array(z.object({
-    feature: z.string().min(5, "Feature name must be at least 5 characters"),
-    description: z.string().min(50, "Description must be at least 50 characters"),
-    useCase: z.string().min(50, "Use case must be at least 50 characters"),
-    benefits: z.array(z.string()).min(2, "Must provide at least 2 benefits").max(3, "Cannot exceed 3 benefits"),
-    implementation: z.string().min(30, "Implementation details must be at least 30 characters").optional()
-  }))
-    .min(3, "Must provide at least 3 key features")
-    .max(5, "Cannot exceed 5 key features")
-    .describe("Main capabilities and features of the topic with their descriptions, use cases, benefits, and implementation details"),
+  points: z.array(z.string()).min(3, "Minimum 3 examples")
+    .describe("Key technical points, specifications, or characteristics about the topic"),
   code: z.object({
     topicofcode: z.string(),
     tcode: z.string()
@@ -46,8 +38,8 @@ const topicSchema = z.object({
     .describe("What learners should be able to do after understanding this topic"),
   commonMisconceptions: z.array(z.object({
     misconception: z.string(),
-    explanation: z.string().min(50),
-    correction: z.string().min(50)
+    explanation: z.string(),
+    correction: z.string()
   }))
     .min(2, "Must provide at least 2 common misconceptions")
     .max(4, "Cannot exceed 4 common misconceptions")
@@ -63,6 +55,18 @@ const topicSchema = z.object({
     .describe("Practice problems to reinforce understanding"),
   webSearchTagline: z.string().describe("A concise tagline for web search related to this topic"),
   youtubeSearchTagline: z.string().describe("A concise tagline for YouTube video search related to this topic")
+});
+
+// Add fallback schema for simpler response
+const fallbackSchema = z.object({
+  topic: z.string(),
+  description: z.string(),
+  subtopics: z.array(z.object({
+    subtop: z.string(),
+    subexplain: z.string()
+  })).optional(),
+  webSearchTagline: z.string(),
+  youtubeSearchTagline: z.string()
 });
 
 async function fetchYouTubeVideos(query) {
@@ -130,6 +134,52 @@ async function fetchWebResults(query) {
   }
 }
 
+async function getFallbackResponse(topic) {
+  try {
+    const fallbackPrompt = `
+      Provide basic information about "${topic}" following this structure:
+      1. A clear topic name
+      2. A simple description
+      3. Optional: 2-3 main subtopics with brief explanations
+      4. A web search tagline optimized for finding articles
+      5. A YouTube search tagline optimized for finding video tutorials
+      
+      Keep the response simple and focused on the essential information.
+      Make sure to include ALL required fields: topic, description, webSearchTagline, and youtubeSearchTagline.
+    `;
+
+    const result = await generateObject({
+      model: google('gemini-2.0-flash-exp'),
+      schema: fallbackSchema,
+      prompt: fallbackPrompt,
+      apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+    });
+
+    // Fetch URLs using the generated taglines
+    const [youtubeResults, webResults] = await Promise.all([
+      fetchYouTubeVideos(result.object.youtubeSearchTagline),
+      fetchWebResults(result.object.webSearchTagline)
+    ]);
+
+    return {
+      ...result.object,
+      youtubeResults,
+      webResults
+    };
+  } catch (error) {
+    console.error('Fallback model error:', error);
+    // Return a basic response if the fallback model fails
+    return {
+      topic: topic,
+      description: `Basic information about ${topic}. This is a simplified response as the detailed generation failed.`,
+      webSearchTagline: `${topic} basic information and tutorials`,
+      youtubeSearchTagline: `${topic} tutorials and explanations`,
+      youtubeResults: [],
+      webResults: []
+    };
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -142,6 +192,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Try the main detailed model first
     const promptWithTopic = `
     
     Provide detailed information on the topic: "${topic}" following these structured guidelines:
@@ -187,9 +238,11 @@ export default async function handler(req, res) {
                     *   **exmexplain (Array of Strings):** A list of strings, each providing a detailed explanation of the subexample above, step-by-step. Explain *why* each step is performed Explain every line of Sub Example.
 
 
-            4. Key Features (3-5 points)
-              - Main capabilities and features of the topic with their descriptions, use cases, benefits, and implementation details
+            4. Points (Min 3 with Each min of 50 characters) 
 
+              - For example if its Code then Give Time and Space Complexity like that others give Other related to it
+             - Important Points to About the Person Or Any Topic
+            
             5. Code (If applicable)
               - Although Code is Provided in subtopic Generation Provide here Also A Basic Implement Program With The Topic
               - If Its A Code Related Topic Provide Of Code Is Compulsory in This Area
@@ -298,7 +351,6 @@ export default async function handler(req, res) {
       fetchWebResults(result.object.webSearchTagline)
     ]);
 
-    // Add the results to the response
     const response = {
       ...result.object,
       youtubeResults,
@@ -308,7 +360,23 @@ export default async function handler(req, res) {
     console.log(response);
     res.status(200).json(response);
   } catch (error) {
-    console.error('Generation error:', error);
-    res.status(500).json({ error: 'Failed to generate content' });
+    console.error('Main model error:', error);
+    try {
+      // If main model fails, try the fallback model
+      const fallbackResponse = await getFallbackResponse(topic);
+      console.log(fallbackResponse);
+      res.status(200).json(fallbackResponse);
+    } catch (fallbackError) {
+      console.error('Both models failed:', fallbackError);
+      // Return a minimal response if both models fail
+      res.status(200).json({
+        topic: topic,
+        description: `Basic information about ${topic}. This is a simplified response as the detailed generation failed.`,
+        webSearchTagline: `${topic} basic information and tutorials`,
+        youtubeSearchTagline: `${topic} tutorials and explanations`,
+        youtubeResults: [],
+        webResults: []
+      });
+    }
   }
 }
