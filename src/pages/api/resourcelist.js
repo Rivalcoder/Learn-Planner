@@ -2,24 +2,123 @@
 import { google } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import axios from 'axios';
 
 const topicSchema = z.object({
   topic: z.string().max(100, "Topic must not exceed 100 characters"),
   describe: z.string()
     .min(50, "Description must be at least 50 words"),
-  subtopics:z.array(z.object({subtop:z.string(),subexplain:z.string().min(50),subexample:z.string(),exmexplain:z.array(z.string())})).optional(),
-    points: z.array(z.string()).min(3, "Minimum 3 examples"),
-    code:z.object({topicofcode:z.string(),tcode:z.string()}).optional(),
-    define: z.array(z.object({code:z.string(),explain:z.string()})).optional(),
-    importance: z.array(z.string())
+  subtopics: z.array(z.object({
+    subtop: z.string(),
+    subexplain: z.string().min(50),
+    subexample: z.string(),
+    exmexplain: z.array(z.string())
+  })).default([]),
+  code: z.object({
+    topicofcode: z.string(),
+    tcode: z.string()
+  }).optional(),
+  define: z.array(z.object({
+    code: z.string(),
+    explain: z.string()
+  })).default([]),
+  importance: z.array(z.string())
     .min(3, "Must provide at least 3 points of importance")
-    .max(5, "Cannot exceed 5 points of importance"),
-    article: z.array(z.object({
-      urltopic:z.string(),
-      Url:z.string().describe("Give Valid And Most Visit Page For Reference"),
-      
-    })).min(6)
+    .max(5, "Cannot exceed 5 points of importance")
+    .describe("Real-world applications, industry impact, and practical significance of understanding this topic"),
+  prerequisites: z.array(z.string())
+    .min(1, "Must provide at least 1 prerequisite")
+    .max(5, "Cannot exceed 5 prerequisites")
+    .describe("Topics or concepts that should be understood before learning this topic"),
+  learningObjectives: z.array(z.string())
+    .min(2, "Must provide at least 2 learning objectives")
+    .max(5, "Cannot exceed 5 learning objectives")
+    .describe("What learners should be able to do after understanding this topic"),
+  commonMisconceptions: z.array(z.object({
+    misconception: z.string(),
+    explanation: z.string().min(50),
+    correction: z.string().min(50)
+  }))
+    .min(2, "Must provide at least 2 common misconceptions")
+    .max(4, "Cannot exceed 4 common misconceptions")
+    .describe("Common mistakes or misunderstandings about this topic"),
+  practiceExercises: z.array(z.object({
+    question: z.string(),
+    difficulty: z.enum(["beginner", "intermediate", "advanced"]),
+    solution: z.string(),
+    explanation: z.string()
+  }))
+    .min(2, "Must provide at least 2 practice exercises")
+    .max(4, "Cannot exceed 4 practice exercises")
+    .describe("Practice problems to reinforce understanding"),
+  webSearchTagline: z.string().describe("A concise tagline for web search related to this topic"),
+  youtubeSearchTagline: z.string().describe("A concise tagline for YouTube video search related to this topic")
 });
+
+async function fetchYouTubeVideos(query) {
+  try {
+    const response = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+      params: {
+        part: 'snippet',
+        q: query,
+        type: 'video',
+        maxResults: 6,
+        key: process.env.YOUTUBE_API_KEY
+      }
+    });
+
+    if (!response.data.items) {
+      console.error('No YouTube results found');
+      return [];
+    }
+
+    return response.data.items.map(item => ({
+      url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+      title: item.snippet.title,
+      channelTitle: item.snippet.channelTitle
+    }));
+  } catch (error) {
+    console.error('YouTube API Error:', error.response?.data || error.message);
+    return [];
+  }
+}
+
+async function fetchWebResults(query) {
+  if (!process.env.GOOGLE_SEARCH_ENGINE_ID) {
+    console.error('GOOGLE_SEARCH_ENGINE_ID is not set. Please create a Custom Search Engine at https://programmablesearch.google.com/create');
+    return [];
+  }
+
+  try {
+    const response = await axios.get('https://www.googleapis.com/customsearch/v1', {
+      params: {
+        q: query,
+        cx: process.env.GOOGLE_SEARCH_ENGINE_ID,
+        key: process.env.GOOGLE_API_KEY,
+        num: 6
+      }
+    });
+
+    if (!response.data.items) {
+      console.error('No search results found');
+      return [];
+    }
+
+    return response.data.items.map(item => ({
+      url: item.link,
+      title: item.title,
+      snippet: item.snippet
+    }));
+  } catch (error) {
+    console.error('Google Search API Error:', error.response?.data || error.message);
+    if (error.response?.status === 429) {
+      console.error('API quota exceeded');
+    } else if (error.response?.status === 400) {
+      console.error('Invalid Search Engine ID or API Key');
+    }
+    return [];
+  }
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -48,7 +147,7 @@ export default async function handler(req, res) {
               - Easy Description Even Beginner can Understand
               - Provide context and relevance.
 
-            3.  **Subtopic Generation (If Applicable):** If subtopics are deemed appropriate, generate an array of subtopic objects, following this structure:
+            3.  **Subtopic Generation (If Applicable):** If subtopics are deemed appropriate, generate an array of subtopic objects, following this structure (Topic Related To It and Basic Important Topic):
 
                   
                     [
@@ -77,21 +176,16 @@ export default async function handler(req, res) {
                     *   **subexample (String):** A practical example demonstrating the subtopic in action if its code give as Complete code itself.
                     *   **exmexplain (Array of Strings):** A list of strings, each providing a detailed explanation of the subexample above, step-by-step. Explain *why* each step is performed Explain every line of Sub Example.
 
-
-            4. Points (Min 3 with Each min of 50 characters) 
-
-              - For example if its Code then Give Time and Space Complexity like that others give Other related to it
-             - Important Points to About the Person Or Any Topic
-            
-            5. Code (If applicable)
+            4. Code (If applicable)
               - Although Code is Provided in subtopic Generation Provide here Also A Basic Implement Program With The Topic
               - If Its A Code Related Topic Provide Of Code Is Compulsory in This Area
               - Include only if the topic is programming-related.
               - Provide a complete and functional code example.
               - The code should be formatted properly.
+              - Basic Level Implementation program min 5 lines.
 
                    
-            6. Code Explanation (If code is present then its compulsory)
+            5. Code Explanation (If code is present then its compulsory)
             
               - Step-by-step breakdown of the logic.
               - Explain each important line of code and its function.
@@ -140,29 +234,65 @@ export default async function handler(req, res) {
                             ]
                                 
 
-            7. Importance (3-5 points)
+            6. Importance (3-5 points)
               -Importance or Advantages About the Topic
               - Highlight key reasons why this topic matters.
               - Discuss modern applications and real-world impact.
 
-          8. Reference Articles (Min 6)
-                - Try to Give More Links If There With Good Understanding Give Top Websited Pages In Url Link
-                - Provide Links related  To learn About The Mentioned Topics links With Most User Visited in Recent Times
-                - Use Different Websites For Reference Dont USe the Same Website More than Once
-                - Focus on reputable sources like academic papers, trusted news sites, and official websites.
-                - Avoid providing YouTube links and 404 error pages. Ensure each URL works properly.
+            7. Prerequisites (1-5 points)
+              - List the fundamental concepts or topics that should be understood before learning this topic
+              - Include any required background knowledge or skills
+              - Specify any tools, software, or resources needed
+
+            8. Learning Objectives (2-5 points)
+              - Define clear, measurable outcomes that learners should achieve
+              - Include both theoretical understanding and practical skills
+              - Focus on what learners will be able to do after mastering the topic
+
+            9. Common Misconceptions (2-4 points)
+                - Identify frequent misunderstandings about the topic
+                - Provide detailed explanations of why these misconceptions occur
+                - Offer clear corrections and proper understanding
+                - Include real-world examples to illustrate the correct concepts
+
+            10. Practice Exercises (2-4 problems)
+                - Create exercises of varying difficulty levels (beginner, intermediate, advanced)
+                - Include detailed solutions and explanations
+                - Focus on practical application of the concepts
+                - Provide step-by-step guidance for solving each problem
+
+          11. Search Taglines
+                - Provide one optimized search tagline for web and one for YouTube
+                - The taglines should be:
+                  * Concise and focused on the main topic
+                  * Optimized for search engines
+                  * For web search: focus on finding comprehensive articles and documentation
+                  * For YouTube: focus on finding the best video tutorials and explanations
 
             `;
-    console.log("Entered APi")
+
     const result = await generateObject({
       model: google('gemini-2.0-flash-exp'),
       schema: topicSchema,
       prompt: promptWithTopic,
       apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
     });
-    
-    console.log(result.object);
-    res.status(200).json(result.object);
+
+    // Fetch URLs using the generated taglines
+    const [youtubeResults, webResults] = await Promise.all([
+      fetchYouTubeVideos(result.object.youtubeSearchTagline),
+      fetchWebResults(result.object.webSearchTagline)
+    ]);
+
+    // Add the results to the response
+    const response = {
+      ...result.object,
+      youtubeResults,
+      webResults
+    };
+
+    console.log(response);
+    res.status(200).json(response);
   } catch (error) {
     console.error('Generation error:', error);
     res.status(500).json({ error: 'Failed to generate content' });
