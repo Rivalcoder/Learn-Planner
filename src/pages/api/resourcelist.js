@@ -14,6 +14,16 @@ const topicSchema = z.object({
     subexample: z.string(),
     exmexplain: z.array(z.string())
   })).default([]),
+  keyFeatures: z.array(z.object({
+    feature: z.string().min(5, "Feature name must be at least 5 characters"),
+    description: z.string().min(50, "Description must be at least 50 characters"),
+    useCase: z.string().min(50, "Use case must be at least 50 characters"),
+    benefits: z.array(z.string()).min(2, "Must provide at least 2 benefits").max(3, "Cannot exceed 3 benefits"),
+    implementation: z.string().min(30, "Implementation details must be at least 30 characters").optional()
+  }))
+    .min(3, "Must provide at least 3 key features")
+    .max(5, "Cannot exceed 5 key features")
+    .describe("Main capabilities and features of the topic with their descriptions, use cases, benefits, and implementation details"),
   code: z.object({
     topicofcode: z.string(),
     tcode: z.string()
@@ -176,7 +186,11 @@ export default async function handler(req, res) {
                     *   **subexample (String):** A practical example demonstrating the subtopic in action if its code give as Complete code itself.
                     *   **exmexplain (Array of Strings):** A list of strings, each providing a detailed explanation of the subexample above, step-by-step. Explain *why* each step is performed Explain every line of Sub Example.
 
-            4. Code (If applicable)
+
+            4. Key Features (3-5 points)
+              - Main capabilities and features of the topic with their descriptions, use cases, benefits, and implementation details
+
+            5. Code (If applicable)
               - Although Code is Provided in subtopic Generation Provide here Also A Basic Implement Program With The Topic
               - If Its A Code Related Topic Provide Of Code Is Compulsory in This Area
               - Include only if the topic is programming-related.
@@ -185,7 +199,7 @@ export default async function handler(req, res) {
               - Basic Level Implementation program min 5 lines.
 
                    
-            5. Code Explanation (If code is present then its compulsory)
+            6. Code Explanation (If code is present then its compulsory)
             
               - Step-by-step breakdown of the logic.
               - Explain each important line of code and its function.
@@ -234,34 +248,34 @@ export default async function handler(req, res) {
                             ]
                                 
 
-            6. Importance (3-5 points)
+            7. Importance (3-5 points)
               -Importance or Advantages About the Topic
               - Highlight key reasons why this topic matters.
               - Discuss modern applications and real-world impact.
 
-            7. Prerequisites (1-5 points)
+            8. Prerequisites (1-5 points)
               - List the fundamental concepts or topics that should be understood before learning this topic
               - Include any required background knowledge or skills
               - Specify any tools, software, or resources needed
 
-            8. Learning Objectives (2-5 points)
+            9. Learning Objectives (2-5 points)
               - Define clear, measurable outcomes that learners should achieve
               - Include both theoretical understanding and practical skills
               - Focus on what learners will be able to do after mastering the topic
 
-            9. Common Misconceptions (2-4 points)
+            10. Common Misconceptions (2-4 points)
                 - Identify frequent misunderstandings about the topic
                 - Provide detailed explanations of why these misconceptions occur
                 - Offer clear corrections and proper understanding
                 - Include real-world examples to illustrate the correct concepts
 
-            10. Practice Exercises (2-4 problems)
+            11. Practice Exercises (2-4 problems)
                 - Create exercises of varying difficulty levels (beginner, intermediate, advanced)
                 - Include detailed solutions and explanations
                 - Focus on practical application of the concepts
                 - Provide step-by-step guidance for solving each problem
 
-          11. Search Taglines
+          12. Search Taglines
                 - Provide one optimized search tagline for web and one for YouTube
                 - The taglines should be:
                   * Concise and focused on the main topic
