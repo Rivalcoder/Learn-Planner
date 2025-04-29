@@ -1,10 +1,6 @@
-# �� Learn Planner 🚀
+# � Learn Planner 🚀
 
-<div align="center">
-  <img src="https://img.shields.io/badge/Version-1.0.0-blue" alt="Version"/>
-  <img src="https://img.shields.io/badge/License-MIT-green" alt="License"/>
-  <img src="https://img.shields.io/badge/Status-Active-success" alt="Status"/>
-</div>
+<br>
 
 Welcome to **Learn Planner** - Your Ultimate Learning Companion! 🎯 This application is designed to revolutionize how you organize and track your learning journey. With intuitive features and a user-friendly interface, you'll stay on top of your educational goals like never before.
 
@@ -85,6 +81,6 @@ Need help? Check out our [Documentation](docs/) or open an issue in our [Issue T
 
 <div align="center">
   <h3>🌟 Happy Learning! Keep Growing! 🚀</h3>
-  <p>Made with ❤️ by the Learn Planner Team</p>
+  <p>Made by ❤️ Rivalcoder</p>
 </div>
 
