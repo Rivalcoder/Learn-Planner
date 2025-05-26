@@ -24,6 +24,19 @@ const topicSchema = z.object({
     code: z.string(),
     explain: z.string()
   })).default([]),
+  visualization: z.object({
+    hasVisualization: z.boolean().default(false),
+    mermaidDiagram: z.string().optional(),
+    diagramExplanation: z.string().optional(),
+    operationSteps: z.array(z.object({
+      operation: z.string(),
+      steps: z.array(z.object({
+        stepNumber: z.number(),
+        diagram: z.string(),
+        description: z.string()
+      }))
+    })).optional()
+  }).optional(),
   importance: z.array(z.string())
     .min(3, "Must provide at least 3 points of importance")
     .max(5, "Cannot exceed 5 points of importance")
@@ -215,7 +228,7 @@ export default async function handler(req, res) {
                       {
                         "subtop": "Subtopic Name 1",
                         "subexplain": "A detailed explanation (min 50 words) of Subtopic Name 1.  Explain its purpose, relevance, and how it relates to the main topic.",
-                        "subexample": "A practical example demonstrating Subtopic Name 1.",
+                        "subexample": "For code topics: A complete, working code example demonstrating the subtopic. For non-code topics: A clear text-based example or representation.",
                         "exmexplain": [
                           "Step-by-step explanation of the subexample of the topic."
                         ]
@@ -223,112 +236,250 @@ export default async function handler(req, res) {
                       {
                         "subtop": "Subtopic Name 2",
                         "subexplain": "A detailed explanation (min 50 words) of Subtopic Name 2. Explain its purpose, relevance, and how it relates to the main topic.",
-                        "subexample": "A practical example demonstrating Subtopic Name 2.",
+                        "subexample": "For code topics: A complete, working code example demonstrating the subtopic. For non-code topics: A clear text-based example or representation.",
                         "exmexplain": [
                           "Step-by-step explanation of the subexample of the topic."
                         ]
-                      },
-                      // ... more subtopics (as needed, but aim for 3 and Above)
+                      }
                     ]
                   
 
                     *   **subtop (String):** A concise and descriptive name for the subtopic.
                     *   *subexplain (String):** A thorough and easy-to-understand explanation of the subtopic (minimum 50 words).
-                    *   **subexample (String):** A practical example demonstrating the subtopic in action if its code give as Complete code itself.
-                    *   **exmexplain (Array of Strings):** A list of strings, each providing a detailed explanation of the subexample above, step-by-step. Explain *why* each step is performed Explain every line of Sub Example.
+                    *   **subexample (String):** 
+                      - For code topics: Provide a complete, working code example that demonstrates the subtopic in action. The code should be:
+                        * Complete and runnable
+                        * Well-formatted and properly indented
+                        * Include necessary imports/dependencies
+                        * Show clear input/output
+                        * Use best practices
+                      - For non-code topics: Provide a clear text-based example or representation that illustrates the concept.
+                    *   **exmexplain (Array of Strings):** A list of strings, each providing a detailed explanation of the subexample above, step-by-step. Explain *why* each step is performed.
 
+            4. Visualization (MANDATORY for all topics)
+               - EVERY topic must include at least one of these visualizations:
+                 * Basic structure visualization (mermaidDiagram)
+                 * Step-by-step operation diagrams (operationSteps)
+                 * Flow of data and state changes
+                 * Concept visualization
+                 * Process flow diagram
+                 * Relationship diagram
+                 * Timeline visualization
+                 * Comparison diagram
+                 
+               - For DSA topics:
+                 * MUST include both mermaidDiagram and operationSteps
+                 * Show basic structure and all operations
+                 * Include step-by-step diagrams for each operation
+                 
+               - For Programming topics:
+                 * MUST include mermaidDiagram showing:
+                   - Program flow
+                   - Data flow
+                   - Component relationships
+                   - Architecture diagram
+                 
+               - For Conceptual topics:
+                 * MUST include mermaidDiagram showing:
+                   - Concept relationships
+                   - Process flow
+                   - Timeline
+                   - Comparison charts
+                   
+               - For Algorithm topics:
+                 * MUST include operationSteps showing:
+                   - Step-by-step execution
+                   - State changes
+                   - Data transformations
+                   
+               - For System Design topics:
+                 * MUST include mermaidDiagram showing:
+                   - System architecture
+                   - Component interactions
+                   - Data flow
+                   - Deployment diagram
 
-            4. Points (Min 3 with Each min of 50 characters) 
+               Format for mermaidDiagram:
+               {
+                 "mermaidDiagram": "flowchart TD\n...",
+                 "diagramExplanation": "Clear explanation of the diagram"
+               }
+
+               Format for operationSteps:
+               {
+                 "operationSteps": [
+                   {
+                     "operation": "Operation Name",
+                     "steps": [
+                       {
+                         "stepNumber": 1,
+                         "diagram": "flowchart TD\n...",
+                         "description": "Step explanation"
+                       }
+                     ]
+                   }
+                 ]
+               }
+
+               IMPORTANT RULES:
+               1. EVERY topic MUST have at least one visualization
+               2. DSA topics MUST have both mermaidDiagram and operationSteps
+               3. Each operation MUST have at least 3 steps
+               4. Each step MUST have a diagram and description
+               5. Diagrams MUST follow the exact templates provided
+               6. NO topic should be without visualization
+               7. If a topic seems to not need visualization, create a concept/relationship diagram
+               8. For abstract topics, use flowcharts or mind maps
+               9. For historical topics, use timelines
+               10. For comparison topics, use comparison charts
+
+               Example for a non-technical topic:
+               "flowchart TD
+               subgraph Concept[Main Concept]
+               A((Core Idea)) --> B((Related Concept 1))
+               A --> C((Related Concept 2))
+               B --> D((Example 1))
+               C --> E((Example 2))
+               end"
+
+               Example for a technical topic:
+               "flowchart TD
+               subgraph System[System Architecture]
+               A((Frontend)) --> B((API))
+               B --> C((Database))
+               C --> D((Cache))
+               end"
+
+               Example for an algorithm:
+               "flowchart TD
+               subgraph Step1[Initial State]
+               A[Input] --> B[Process]
+               B --> C[Output]
+               end"
+
+               REMEMBER: NO topic should be without visualization. If unsure, create a concept map or flowchart.
+
+            5. Operation Steps (For DSA Topics)
+               - For each operation (insertion, deletion, etc.), provide:
+                 * A clear operation name
+                 * An array of steps, each with its own diagram
+                 * A detailed explanation for each step
+               - Format each operation step as:
+                 {
+                   "operation": "Operation Name (e.g., 'Binary Tree Insertion')",
+                   "steps": [
+                     {
+                       "stepNumber": 1,
+                       "diagram": "EXACT TEMPLATE FROM ABOVE",
+                       "description": "Initial state of the data structure"
+                     },
+                     {
+                       "stepNumber": 2,
+                       "diagram": "EXACT TEMPLATE FROM ABOVE",
+                       "description": "What changes in this step"
+                     },
+                     {
+                       "stepNumber": 3,
+                       "diagram": "EXACT TEMPLATE FROM ABOVE",
+                       "description": "Final state after the operation"
+                     }
+                   ]
+                 }
+               - Example for Binary Tree Insertion:
+                 * Show 3 steps: initial state, find position, insert node
+                 * Each step should be a separate diagram
+                 * Include clear progression from initial to final state
+                 * Explain node changes in each step
+               - Example for Binary Tree Deletion:
+                 * Show 3 steps: initial state, find node, remove node
+                 * Each step should be a separate diagram
+                 * Include clear progression from initial to final state
+                 * Explain node removal process in each step
+               - Keep examples simple and focused on one operation at a time
+               - Use small data structures (3-4 nodes) for clarity
+               - Include clear visual transitions between states
+               - Explain each pointer/node change in simple terms
+               - Show each step as a separate diagram
+               - Each step should have its own subgraph and clear explanation
+
+            6. Points (Min 3 with Each min of 50 characters) 
 
               - For example if its Code then Give Time and Space Complexity like that others give Other related to it
              - Important Points to About the Person Or Any Topic
             
-            5. Code (If applicable)
-              - Although Code is Provided in subtopic Generation Provide here Also A Basic Implement Program With The Topic
-              - If Its A Code Related Topic Provide Of Code Is Compulsory in This Area
-              - Include only if the topic is programming-related.
-              - Provide a complete and functional code example.
-              - The code should be formatted properly.
-              - Basic Level Implementation program min 5 lines.
+            7. Code (If applicable)
+              - For code topics:
+                * Provide a small, easy-to-understand implementation
+                * Keep the code simple and focused on the core concept
+                * Include only essential functionality
+                * Use clear variable names and comments
+                * Show basic input/output
+                * Format: {
+                  "topicofcode": "Simple Implementation of [Topic]",
+                  "tcode": "Complete, working code example"
+                }
+              - For non-code topics:
+                * Provide a text-based representation or example
+                * Use clear formatting and structure
+                * Include relevant diagrams or visualizations
+                * Format: {
+                  "topicofcode": "Example of [Topic]",
+                  "tcode": "Text-based example or representation"
+                }
+              - The code/example should be:
+                * Easy to understand
+                * Well-documented
+                * Follow best practices
+                * Include comments explaining key parts
+                * Show clear progression of concepts
 
-                   
-            6. Code Explanation (If code is present then its compulsory)
-            
-              - Step-by-step breakdown of the logic.
-              - Explain each important line of code and its function.
-              - Clearly describe how the code works.
-               -** Example :  define: [
-                              {
-                                code: '#include <iostream>\n// ... (rest of the code)',
-                                explain: 'Includes the iostream library for input/output operations.'
-                              },
-                              {
-                                code: 'struct Node { ... };',
-                                explain: 'Defines the structure of a node in the linked list, containing data and a pointer to the next node.'
-                              },
-                              {
-                                code: 'std::shared_ptr<Node> next;',
-                                explain: 'Uses a smart pointer (shared_ptr) to manage the next node, automatically handling memory allocation and deallocation.'
-                              },
-                              {
-                                code: 'void insert(std::shared_ptr<Node>& head, int val) { ... }',
-                                explain: 'Defines the insert function to add a new node at the beginning of the list.'
-                              },
-                              {
-                                code: 'newNode->next = head;',
-                                explain: 'Links the new node to the current head of the list.'
-                              },
-                              {
-                                code: 'head = newNode;',
-                                explain: 'Updates the head of the list to point to the new node.'
-                              },
-                              {
-                                code: 'void display(std::shared_ptr<Node> head) { ... }',
-                                explain: 'Defines the display function to print the elements of the list.'
-                              },
-                              {
-                                code: 'while (head) { ... }',
-                                explain: 'Iterates through the list until the end (nullptr) is reached.'
-                              },
-                              {
-                                code: 'std::cout << head->data << " -> ";',
-                                explain: 'Prints the data of the current node and an arrow.'
-                              },
-                              {
-                                code: 'head = head->next;',
-                                explain: 'Moves to the next node in the list.'
-                              }
-                            ]
-                                
+            8. Code Explanation (If code is present then its compulsory)
+              - For code topics:
+                * Explain each line of code
+                * Describe the purpose of each function
+                * Explain the logic and flow
+                * Highlight important concepts
+                * Show how the code works step by step
+              - For non-code topics:
+                * Explain the example or representation
+                * Break down the concept into parts
+                * Show how different elements relate
+                * Explain the significance of each part
+              - Format: [
+                {
+                  "code": "Code snippet or example part",
+                  "explain": "Detailed explanation of this part"
+                }
+              ]
 
-            7. Importance (3-5 points)
+            9. Importance (3-5 points)
               -Importance or Advantages About the Topic
               - Highlight key reasons why this topic matters.
               - Discuss modern applications and real-world impact.
 
-            8. Prerequisites (1-5 points)
+            10. Prerequisites (1-5 points)
               - List the fundamental concepts or topics that should be understood before learning this topic
               - Include any required background knowledge or skills
               - Specify any tools, software, or resources needed
 
-            9. Learning Objectives (2-5 points)
+            11. Learning Objectives (2-5 points)
               - Define clear, measurable outcomes that learners should achieve
               - Include both theoretical understanding and practical skills
               - Focus on what learners will be able to do after mastering the topic
 
-            10. Common Misconceptions (2-4 points)
+            12. Common Misconceptions (2-4 points)
                 - Identify frequent misunderstandings about the topic
                 - Provide detailed explanations of why these misconceptions occur
                 - Offer clear corrections and proper understanding
                 - Include real-world examples to illustrate the correct concepts
 
-            11. Practice Exercises (2-4 problems)
+            13. Practice Exercises (2-4 problems)
                 - Create exercises of varying difficulty levels (beginner, intermediate, advanced)
                 - Include detailed solutions and explanations
                 - Focus on practical application of the concepts
                 - Provide step-by-step guidance for solving each problem
 
-          12. Search Taglines
+          14. Search Taglines
                 - Provide one optimized search tagline for web and one for YouTube
                 - The taglines should be:
                   * Concise and focused on the main topic

@@ -2,6 +2,8 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import mermaid from 'mermaid';
+import { Highlight, themes } from 'prism-react-renderer';
 import { 
   Loader2, 
   CheckCircle, 
@@ -22,6 +24,45 @@ import {
   Terminal
 } from "lucide-react";
 import "../app/globals.css";
+
+// Initialize Mermaid
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'dark',
+  securityLevel: 'loose',
+  themeVariables: {
+    fontFamily: 'monospace',
+    fontSize: '16px',
+    primaryColor: '#6366f1',
+    primaryTextColor: '#fff',
+    primaryBorderColor: '#6366f1',
+    lineColor: '#6366f1',
+    secondaryColor: '#4f46e5',
+    tertiaryColor: '#4338ca',
+  }
+});
+
+const CodeBlock = ({ code, language = "javascript" }) => {
+  return (
+    <Highlight
+      theme={themes.nightOwl}
+      code={code}
+      language={language}
+    >
+      {({ className, style, tokens, getLineProps, getTokenProps }) => (
+        <pre className={`${className} p-4 rounded-xl overflow-x-auto text-sm border border-gray-700`} style={style}>
+          {tokens.map((line, i) => (
+            <div key={i} {...getLineProps({ line })}>
+              {line.map((token, key) => (
+                <span key={key} {...getTokenProps({ token })} />
+              ))}
+            </div>
+          ))}
+        </pre>
+      )}
+    </Highlight>
+  );
+};
 
 const LanguageImplementation = ({ implementations, title }) => {
   const [activeTab, setActiveTab] = useState(0);
@@ -67,6 +108,167 @@ const LanguageImplementation = ({ implementations, title }) => {
           </p>
         </div>
       </div>
+    </div>
+  );
+};
+
+const MermaidDiagram = ({ diagram }) => {
+  const [svg, setSvg] = useState('');
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const renderDiagram = async () => {
+      try {
+        // Add unique ID for each diagram to prevent conflicts
+        const uniqueId = `mermaid-diagram-${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Ensure the diagram has a type specification
+        let diagramText = diagram;
+        if (!diagramText.startsWith('graph') && !diagramText.startsWith('flowchart')) {
+          diagramText = `flowchart TD\n${diagramText}`;
+        }
+        
+        const { svg } = await mermaid.render(uniqueId, diagramText);
+        setSvg(svg);
+        setError(null);
+      } catch (err) {
+        console.error('Mermaid rendering error:', err);
+        setError('Failed to render diagram');
+      }
+    };
+
+    if (diagram) {
+      renderDiagram();
+    }
+  }, [diagram]);
+
+  if (error) {
+    return (
+      <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+        <p className="text-red-400 text-sm">{error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+      <div dangerouslySetInnerHTML={{ __html: svg }} />
+    </div>
+  );
+};
+
+const StepByStepDiagram = ({ steps }) => {
+  const [currentStep, setCurrentStep] = useState(0);
+
+  if (!steps || steps.length === 0) return null;
+
+  const handleNext = () => {
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  // Process each step to ensure it has the correct diagram type
+  const processedSteps = steps.map(step => {
+    if (!step.startsWith('graph') && !step.startsWith('flowchart')) {
+      return `flowchart TD\n${step}`;
+    }
+    return step;
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <button
+          onClick={handlePrevious}
+          disabled={currentStep === 0}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            currentStep === 0
+              ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+              : 'bg-indigo-500 text-white hover:bg-indigo-600'
+          }`}
+        >
+          Previous Step
+        </button>
+        <span className="text-gray-300">
+          Step {currentStep + 1} of {steps.length}
+        </span>
+        <button
+          onClick={handleNext}
+          disabled={currentStep === steps.length - 1}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            currentStep === steps.length - 1
+              ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+              : 'bg-indigo-500 text-white hover:bg-indigo-600'
+          }`}
+        >
+          Next Step
+        </button>
+      </div>
+      <MermaidDiagram diagram={processedSteps[currentStep]} />
+    </div>
+  );
+};
+
+const OperationSteps = ({ steps }) => {
+  if (!steps || steps.length === 0) return null;
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+        <Sparkles className="w-5 h-5 text-indigo-400" />
+        Operation Steps
+      </h3>
+      {steps.map((step, index) => (
+        <div key={index} className="bg-gray-800/60 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
+          <h4 className="text-lg font-medium text-indigo-400 mb-4">
+            {step.operation}
+          </h4>
+          <StepByStepDiagram steps={step.steps.map(s => s.diagram)} />
+          <div className="mt-4 space-y-2">
+            {step.steps.map((subStep, subIndex) => (
+              <p key={subIndex} className="text-gray-300 text-sm">
+                <span className="font-medium text-indigo-400">Step {subStep.stepNumber}:</span> {subStep.description}
+              </p>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const DataStructureVisualization = ({ visualization }) => {
+  if (!visualization) return null;
+
+  return (
+    <div className="space-y-6">
+      {/* Initial Structure Diagram */}
+      {visualization.mermaidDiagram && (
+        <div className="bg-gray-800/60 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
+          <h3 className="text-xl font-semibold text-white flex items-center gap-2 mb-4">
+            <Brain className="w-5 h-5 text-indigo-400" />
+            Data Structure Overview
+          </h3>
+          <MermaidDiagram diagram={visualization.mermaidDiagram} />
+          {visualization.diagramExplanation && (
+            <p className="mt-4 text-gray-300 text-sm">
+              {visualization.diagramExplanation}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Operation Steps */}
+      {visualization.operationSteps && visualization.operationSteps.length > 0 && (
+        <OperationSteps steps={visualization.operationSteps} />
+      )}
     </div>
   );
 };
@@ -205,6 +407,17 @@ export default function TopicDetailsPage() {
               </p>
             </motion.div>
 
+            {/* Visualization Section */}
+            {content.visualization && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <DataStructureVisualization visualization={content.visualization} />
+              </motion.div>
+            )}
+
             {/* Sub Topics - Only show if available */}
             {content.subtopics && content.subtopics.length > 0 && (
               <motion.div
@@ -280,9 +493,7 @@ export default function TopicDetailsPage() {
                   Implementation
                 </h2>
                 <h3 className="text-lg font-semibold text-gray-300 mb-4">{content.code.topicofcode}</h3>
-                <pre className="bg-gray-900/50 text-white p-4 rounded-xl overflow-x-auto text-sm mb-6 border border-gray-700">
-                  <code>{content.code.tcode}</code>
-                </pre>
+                <CodeBlock code={content.code.tcode} language="javascript" />
                 {content.define && content.define.length > 0 && (
                   <div className="space-y-4">
                     <button
@@ -309,7 +520,7 @@ export default function TopicDetailsPage() {
                           <ul className="space-y-4">
                             {content.define.map((def, index) => (
                               <li key={index} className="bg-gray-900/30 rounded-lg p-4 border border-gray-700">
-                                <code className="font-mono bg-gray-800 px-3 py-1 rounded text-indigo-300 whitespace-pre-wrap block">{def.code}</code>
+                                <CodeBlock code={def.code} language="javascript" />
                                 <p className="mt-2 text-gray-300">{def.explain}</p>
                               </li>
                             ))}
@@ -483,9 +694,7 @@ export default function TopicDetailsPage() {
                             >
                               <div className="bg-gray-800/50 p-4 rounded-lg">
                                 <h4 className="text-sm font-medium text-blue-400 mb-2">Solution:</h4>
-                                <pre className="bg-gray-900/50 text-white p-4 rounded-xl overflow-x-auto text-sm border border-gray-700">
-                                  <code className="whitespace-pre-wrap">{exercise.solution}</code>
-                                </pre>
+                                <CodeBlock code={exercise.solution} language="javascript" />
                               </div>
                               <div className="bg-gray-800/50 p-4 rounded-lg">
                                 <h4 className="text-sm font-medium text-blue-400 mb-2">Explanation:</h4>
