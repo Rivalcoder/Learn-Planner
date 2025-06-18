@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from 'next/navigation';
 import Link from "next/link";
+import Head from "next/head";
 import { motion } from "framer-motion";
 
 import { Button } from "../components/button";
@@ -158,6 +159,9 @@ export default function LearningPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-6">
+      <Head>
+        <title>Learning Page</title>
+      </Head>
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}

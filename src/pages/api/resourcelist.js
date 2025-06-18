@@ -12,7 +12,13 @@ const topicSchema = z.object({
     subtop: z.string(),
     subexplain: z.string().min(50),
     subexample: z.string(),
-    exmexplain: z.array(z.string())
+    exmexplain: z.array(z.string()),
+    subtopicVisualizationHtml: z.array(z.object({
+      step: z.string(),
+      completeHtml: z.string().describe("Complete, self-contained HTML file with embedded CSS and JS that can be rendered directly in a browser"),
+      explanation: z.string(),
+      purpose: z.string()
+    })).describe("An array of step-by-step visualization components for this specific subtopic")
   })).default([]),
   points: z.array(z.string()).min(3, "Minimum 3 examples")
     .describe("Key technical points, specifications, or characteristics about the topic"),
@@ -24,19 +30,12 @@ const topicSchema = z.object({
     code: z.string(),
     explain: z.string()
   })).default([]),
-  visualization: z.object({
-    hasVisualization: z.boolean().default(false),
-    mermaidDiagram: z.string().optional(),
-    diagramExplanation: z.string().optional(),
-    operationSteps: z.array(z.object({
-      operation: z.string(),
-      steps: z.array(z.object({
-        stepNumber: z.number(),
-        diagram: z.string(),
-        description: z.string()
-      }))
-    })).optional()
-  }).optional(),
+  visualizationHtml: z.array(z.object({
+    step: z.string(),
+    completeHtml: z.string().describe("Complete, self-contained HTML file with embedded CSS and JS that can be rendered directly in a browser"),
+    explanation: z.string(),
+    purpose: z.string()
+  })).describe("An array of step-by-step visualization components, each containing a complete HTML file for rendering the topic visualization"),
   importance: z.array(z.string())
     .min(3, "Must provide at least 3 points of importance")
     .max(5, "Cannot exceed 5 points of importance")
@@ -76,10 +75,22 @@ const fallbackSchema = z.object({
   description: z.string(),
   subtopics: z.array(z.object({
     subtop: z.string(),
-    subexplain: z.string()
+    subexplain: z.string(),
+    subtopicVisualizationHtml: z.array(z.object({
+      step: z.string(),
+      completeHtml: z.string().describe("Complete, self-contained HTML file with embedded CSS and JS that can be rendered directly in a browser"),
+      explanation: z.string(),
+      purpose: z.string()
+    })).describe("An array of step-by-step visualization components for this specific subtopic")
   })).optional(),
   webSearchTagline: z.string(),
-  youtubeSearchTagline: z.string()
+  youtubeSearchTagline: z.string(),
+  visualizationHtml: z.array(z.object({
+    step: z.string(),
+    completeHtml: z.string().describe("Complete, self-contained HTML file with embedded CSS and JS that can be rendered directly in a browser"),
+    explanation: z.string(),
+    purpose: z.string()
+  })).describe("An array of step-by-step visualization components for the topic")
 });
 
 async function fetchYouTubeVideos(query) {
@@ -153,12 +164,24 @@ async function getFallbackResponse(topic) {
       Provide basic information about "${topic}" following this structure:
       1. A clear topic name
       2. A simple description
-      3. Optional: 2-3 main subtopics with brief explanations
+      3. Subtopic Generation (MANDATORY - Generate subtopics for topics that can be broken down):
+         - Generate 1-3 subtopics for topics with multiple components or aspects
+         - Each subtopic should include:
+           * subtop: Subtopic name
+           * subexplain: Brief explanation of the subtopic
+           * subtopicVisualizationHtml: Array of 2-3 visualization steps for this subtopic
+             - Each step should have: step name, completeHtml (self-contained HTML), explanation, and purpose
+             - Focus on visual representation specific to this subtopic
       4. A web search tagline optimized for finding articles
       5. A YouTube search tagline optimized for finding video tutorials
-      
-      Keep the response simple and focused on the essential information.
-      Make sure to include ALL required fields: topic, description, webSearchTagline, and youtubeSearchTagline.
+      6. A visualizationHtml array containing step-by-step visualization components for the main topic. Each component should have:
+         - step: Step name or description
+         - completeHtml: Complete, self-contained HTML file with embedded CSS and JS that can be rendered directly in a browser
+         - explanation: What this step shows
+         - purpose: Why this step is important
+       Keep the response simple and focused on the essential information.
+       Make sure to include ALL required fields: topic, description, subtopics (when applicable), webSearchTagline, youtubeSearchTagline, and visualizationHtml as an array.
+       ALWAYS generate subtopics for topics that have multiple components, concepts, or aspects.
     `;
 
     const result = await generateObject({
@@ -185,8 +208,10 @@ async function getFallbackResponse(topic) {
     return {
       topic: topic,
       description: `Basic information about ${topic}. This is a simplified response as the detailed generation failed.`,
+      subtopics: [],
       webSearchTagline: `${topic} basic information and tutorials`,
       youtubeSearchTagline: `${topic} tutorials and explanations`,
+      visualizationHtml: [],
       youtubeResults: [],
       webResults: []
     };
@@ -207,287 +232,259 @@ export default async function handler(req, res) {
   try {
     // Try the main detailed model first
     const promptWithTopic = `
-    
     Provide detailed information on the topic: "${topic}" following these structured guidelines:
-
-            1. Topic Header (Max 50 characters)
-                
-                A clear and concise title summarizing the topic.
-                If Question iS One or Two Words Answer Then Give Topic As the Answer Word
-            
-            2. Description (Min 50 words)
-              
-              - A well-explained and easy-to-understand description.
-              - Easy Description Even Beginner can Understand
-              - Provide context and relevance.
-
-            3.  **Subtopic Generation (If Applicable):** If subtopics are deemed appropriate, generate an array of subtopic objects, following this structure (Topic Related To It and Basic Important Topic):
-
-                  
-                    [
-                      {
-                        "subtop": "Subtopic Name 1",
-                        "subexplain": "A detailed explanation (min 50 words) of Subtopic Name 1.  Explain its purpose, relevance, and how it relates to the main topic.",
-                        "subexample": "For code topics: A complete, working code example demonstrating the subtopic. For non-code topics: A clear text-based example or representation.",
-                        "exmexplain": [
-                          "Step-by-step explanation of the subexample of the topic."
-                        ]
-                      },
-                      {
-                        "subtop": "Subtopic Name 2",
-                        "subexplain": "A detailed explanation (min 50 words) of Subtopic Name 2. Explain its purpose, relevance, and how it relates to the main topic.",
-                        "subexample": "For code topics: A complete, working code example demonstrating the subtopic. For non-code topics: A clear text-based example or representation.",
-                        "exmexplain": [
-                          "Step-by-step explanation of the subexample of the topic."
-                        ]
-                      }
-                    ]
-                  
-
-                    *   **subtop (String):** A concise and descriptive name for the subtopic.
-                    *   *subexplain (String):** A thorough and easy-to-understand explanation of the subtopic (minimum 50 words).
-                    *   **subexample (String):** 
-                      - For code topics: Provide a complete, working code example that demonstrates the subtopic in action. The code should be:
-                        * Complete and runnable
-                        * Well-formatted and properly indented
-                        * Include necessary imports/dependencies
-                        * Show clear input/output
-                        * Use best practices
-                      - For non-code topics: Provide a clear text-based example or representation that illustrates the concept.
-                    *   **exmexplain (Array of Strings):** A list of strings, each providing a detailed explanation of the subexample above, step-by-step. Explain *why* each step is performed.
-
-            4. Visualization (MANDATORY for all topics)
-               - EVERY topic must include at least one of these visualizations:
-                 * Basic structure visualization (mermaidDiagram)
-                 * Step-by-step operation diagrams (operationSteps)
-                 * Flow of data and state changes
-                 * Concept visualization
-                 * Process flow diagram
-                 * Relationship diagram
-                 * Timeline visualization
-                 * Comparison diagram
-                 
-               - For DSA topics:
-                 * MUST include both mermaidDiagram and operationSteps
-                 * Show basic structure and all operations
-                 * Include step-by-step diagrams for each operation
-                 
-               - For Programming topics:
-                 * MUST include mermaidDiagram showing:
-                   - Program flow
-                   - Data flow
-                   - Component relationships
-                   - Architecture diagram
-                 
-               - For Conceptual topics:
-                 * MUST include mermaidDiagram showing:
-                   - Concept relationships
-                   - Process flow
-                   - Timeline
-                   - Comparison charts
-                   
-               - For Algorithm topics:
-                 * MUST include operationSteps showing:
-                   - Step-by-step execution
-                   - State changes
-                   - Data transformations
-                   
-               - For System Design topics:
-                 * MUST include mermaidDiagram showing:
-                   - System architecture
-                   - Component interactions
-                   - Data flow
-                   - Deployment diagram
-
-               Format for mermaidDiagram:
-               {
-                 "mermaidDiagram": "flowchart TD\n...",
-                 "diagramExplanation": "Clear explanation of the diagram"
-               }
-
-               Format for operationSteps:
-               {
-                 "operationSteps": [
-                   {
-                     "operation": "Operation Name",
-                     "steps": [
-                       {
-                         "stepNumber": 1,
-                         "diagram": "flowchart TD\n...",
-                         "description": "Step explanation"
-                       }
-                     ]
-                   }
-                 ]
-               }
-
-               IMPORTANT RULES:
-               1. EVERY topic MUST have at least one visualization
-               2. DSA topics MUST have both mermaidDiagram and operationSteps
-               3. Each operation MUST have at least 3 steps
-               4. Each step MUST have a diagram and description
-               5. Diagrams MUST follow the exact templates provided
-               6. NO topic should be without visualization
-               7. If a topic seems to not need visualization, create a concept/relationship diagram
-               8. For abstract topics, use flowcharts or mind maps
-               9. For historical topics, use timelines
-               10. For comparison topics, use comparison charts
-
-               Example for a non-technical topic:
-               "flowchart TD
-               subgraph Concept[Main Concept]
-               A((Core Idea)) --> B((Related Concept 1))
-               A --> C((Related Concept 2))
-               B --> D((Example 1))
-               C --> E((Example 2))
-               end"
-
-               Example for a technical topic:
-               "flowchart TD
-               subgraph System[System Architecture]
-               A((Frontend)) --> B((API))
-               B --> C((Database))
-               C --> D((Cache))
-               end"
-
-               Example for an algorithm:
-               "flowchart TD
-               subgraph Step1[Initial State]
-               A[Input] --> B[Process]
-               B --> C[Output]
-               end"
-
-               REMEMBER: NO topic should be without visualization. If unsure, create a concept map or flowchart.
-
-            5. Operation Steps (For DSA Topics)
-               - For each operation (insertion, deletion, etc.), provide:
-                 * A clear operation name
-                 * An array of steps, each with its own diagram
-                 * A detailed explanation for each step
-               - Format each operation step as:
-                 {
-                   "operation": "Operation Name (e.g., 'Binary Tree Insertion')",
-                   "steps": [
-                     {
-                       "stepNumber": 1,
-                       "diagram": "EXACT TEMPLATE FROM ABOVE",
-                       "description": "Initial state of the data structure"
-                     },
-                     {
-                       "stepNumber": 2,
-                       "diagram": "EXACT TEMPLATE FROM ABOVE",
-                       "description": "What changes in this step"
-                     },
-                     {
-                       "stepNumber": 3,
-                       "diagram": "EXACT TEMPLATE FROM ABOVE",
-                       "description": "Final state after the operation"
-                     }
-                   ]
-                 }
-               - Example for Binary Tree Insertion:
-                 * Show 3 steps: initial state, find position, insert node
-                 * Each step should be a separate diagram
-                 * Include clear progression from initial to final state
-                 * Explain node changes in each step
-               - Example for Binary Tree Deletion:
-                 * Show 3 steps: initial state, find node, remove node
-                 * Each step should be a separate diagram
-                 * Include clear progression from initial to final state
-                 * Explain node removal process in each step
-               - Keep examples simple and focused on one operation at a time
-               - Use small data structures (3-4 nodes) for clarity
-               - Include clear visual transitions between states
-               - Explain each pointer/node change in simple terms
-               - Show each step as a separate diagram
-               - Each step should have its own subgraph and clear explanation
-
-            6. Points (Min 3 with Each min of 50 characters) 
-
-              - For example if its Code then Give Time and Space Complexity like that others give Other related to it
-             - Important Points to About the Person Or Any Topic
-            
-            7. Code (If applicable)
-              - For code topics:
-                * Provide a small, easy-to-understand implementation
-                * Keep the code simple and focused on the core concept
-                * Include only essential functionality
-                * Use clear variable names and comments
-                * Show basic input/output
-                * Format: {
-                  "topicofcode": "Simple Implementation of [Topic]",
-                  "tcode": "Complete, working code example"
-                }
-              - For non-code topics:
-                * Provide a text-based representation or example
-                * Use clear formatting and structure
-                * Include relevant diagrams or visualizations
-                * Format: {
-                  "topicofcode": "Example of [Topic]",
-                  "tcode": "Text-based example or representation"
-                }
-              - The code/example should be:
-                * Easy to understand
-                * Well-documented
-                * Follow best practices
-                * Include comments explaining key parts
-                * Show clear progression of concepts
-
-            8. Code Explanation (If code is present then its compulsory)
-              - For code topics:
-                * Explain each line of code
-                * Describe the purpose of each function
-                * Explain the logic and flow
-                * Highlight important concepts
-                * Show how the code works step by step
-              - For non-code topics:
-                * Explain the example or representation
-                * Break down the concept into parts
-                * Show how different elements relate
-                * Explain the significance of each part
-              - Format: [
-                {
-                  "code": "Code snippet or example part",
-                  "explain": "Detailed explanation of this part"
-                }
-              ]
-
-            9. Importance (3-5 points)
-              -Importance or Advantages About the Topic
-              - Highlight key reasons why this topic matters.
-              - Discuss modern applications and real-world impact.
-
-            10. Prerequisites (1-5 points)
-              - List the fundamental concepts or topics that should be understood before learning this topic
-              - Include any required background knowledge or skills
-              - Specify any tools, software, or resources needed
-
-            11. Learning Objectives (2-5 points)
-              - Define clear, measurable outcomes that learners should achieve
-              - Include both theoretical understanding and practical skills
-              - Focus on what learners will be able to do after mastering the topic
-
-            12. Common Misconceptions (2-4 points)
-                - Identify frequent misunderstandings about the topic
-                - Provide detailed explanations of why these misconceptions occur
-                - Offer clear corrections and proper understanding
-                - Include real-world examples to illustrate the correct concepts
-
-            13. Practice Exercises (2-4 problems)
-                - Create exercises of varying difficulty levels (beginner, intermediate, advanced)
-                - Include detailed solutions and explanations
-                - Focus on practical application of the concepts
-                - Provide step-by-step guidance for solving each problem
-
-          14. Search Taglines
-                - Provide one optimized search tagline for web and one for YouTube
-                - The taglines should be:
-                  * Concise and focused on the main topic
-                  * Optimized for search engines
-                  * For web search: focus on finding comprehensive articles and documentation
-                  * For YouTube: focus on finding the best video tutorials and explanations
-
-            `;
+    1. Topic Header (Max 50 characters)
+      A clear and concise title summarizing the topic.
+      If Question iS One or Two Words Answer Then Give Topic As the Answer Word
+    2. Description (Min 50 words)
+      - A well-explained and easy-to-understand description.
+      - Easy Description Even Beginner can Understand
+      - Provide context and relevance.
+    3.  **Subtopic Generation (MANDATORY - Generate subtopics for ALL topics that can be broken down):** 
+      - ALWAYS generate subtopics for topics that have multiple components, concepts, or aspects
+      - For complex topics, generate 2-4 subtopics that cover the main aspects
+      - For simpler topics, generate 1-2 subtopics that break down the concept
+      - Each subtopic should be a significant, distinct aspect of the main topic
+      - Generate subtopics following this structure:
+      [
+        {
+          "subtop": "Subtopic Name 1",
+          "subexplain": "A detailed explanation (min 50 words) of Subtopic Name 1.  Explain its purpose, relevance, and how it relates to the main topic.",
+          "subexample": "For code topics: A complete, working code example demonstrating the subtopic. For non-code topics: A clear text-based example or representation.",
+          "exmexplain": [
+            "Step-by-step explanation of the subexample of the topic."
+          ],
+          "subtopicVisualizationHtml": [
+            {
+              "step": "Subtopic Step 1",
+              "completeHtml": "Complete, self-contained HTML file with embedded CSS and JS for this subtopic visualization",
+              "explanation": "What this subtopic visualization step shows",
+              "purpose": "Why this subtopic step is important"
+            },
+            {
+              "step": "Subtopic Step 2", 
+              "completeHtml": "Complete, self-contained HTML file with embedded CSS and JS for this subtopic visualization",
+              "explanation": "What this subtopic visualization step shows",
+              "purpose": "Why this subtopic step is important"
+            }
+          ]
+        },
+        {
+          "subtop": "Subtopic Name 2",
+          "subexplain": "A detailed explanation (min 50 words) of Subtopic Name 2. Explain its purpose, relevance, and how it relates to the main topic.",
+          "subexample": "For code topics: A complete, working code example demonstrating the subtopic. For non-code topics: A clear text-based example or representation.",
+          "exmexplain": [
+            "Step-by-step explanation of the subexample of the topic."
+          ],
+          "subtopicVisualizationHtml": [
+            {
+              "step": "Subtopic Step 1",
+              "completeHtml": "Complete, self-contained HTML file with embedded CSS and JS for this subtopic visualization",
+              "explanation": "What this subtopic visualization step shows", 
+              "purpose": "Why this subtopic step is important"
+            },
+            {
+              "step": "Subtopic Step 2",
+              "completeHtml": "Complete, self-contained HTML file with embedded CSS and JS for this subtopic visualization",
+              "explanation": "What this subtopic visualization step shows",
+              "purpose": "Why this subtopic step is important"
+            }
+          ]
+        }
+      ]
+      *   **subtop (String):** A concise and descriptive name for the subtopic.
+      *   *subexplain (String):** A thorough and easy-to-understand explanation of the subtopic (minimum 50 words).
+      *   **subexample (String):** 
+        - For code topics: Provide a complete, working code example that demonstrates the subtopic in action. The code should be:
+          * Complete and runnable
+          * Well-formatted and properly indented
+          * Include necessary imports/dependencies
+          * Show clear input/output
+          * Use best practices
+        - For non-code topics: Provide a clear text-based example or representation that illustrates the concept.
+      *   **exmexplain (Array of Strings):** A list of strings, each providing a detailed explanation of the subexample above, step-by-step. Explain *why* each step is performed.
+      *   **subtopicVisualizationHtml (Array):** Each subtopic MUST include its own visualization components following the same structure as main topic visualizations:
+        - Each subtopic should have 2-4 visualization steps specific to that subtopic
+        - Each step should be focused on explaining that particular subtopic concept
+        - Use the same HTML/CSS/JS structure as main topic visualizations
+        - Make visualizations specific to the subtopic's unique aspects
+        - Include interactive elements that demonstrate the subtopic's functionality
+        - Show how the subtopic relates to the main topic
+      - **IMPORTANT:** Generate subtopics for topics like:
+        * Data Structures (e.g., Arrays, Linked Lists, Trees, Graphs, Hash Tables, Stacks, Queues)
+        * Algorithms (e.g., Sorting, Searching, Graph Algorithms, Dynamic Programming)
+        * Programming Concepts (e.g., OOP, Functional Programming, Design Patterns)
+        * System Design (e.g., Architecture Patterns, Scalability, Security, Performance)
+        * Frameworks/Libraries (e.g., React, Node.js, Django, Spring)
+        * Database Concepts (e.g., SQL, NoSQL, ACID, CAP Theorem)
+        * Network Protocols (e.g., HTTP, TCP/IP, WebSocket, REST)
+        * Security Concepts (e.g., Authentication, Authorization, Encryption, OAuth)
+        * DevOps (e.g., CI/CD, Containerization, Orchestration, Monitoring)
+        * Any topic that has multiple components, phases, or aspects
+    4. Visualization (MANDATORY for all topics - Enhanced with more steps and better visual understanding)
+      - EVERY topic must include a visualizationHtml field containing an array of step-by-step visualization components.
+      - Each visualization component should follow this structure:
+        {
+          "step": "Step name or description (e.g., 'Initial Setup', 'Data Flow', 'Algorithm Execution')",
+          "completeHtml": "Complete, self-contained HTML file with embedded CSS and JS that can be rendered directly in a browser",
+          "explanation": "Detailed explanation of what this visualization step shows",
+          "purpose": "Why this step is important for understanding the topic"
+        }
+      - For Data Structure topics (Enhanced visualization):
+        * Step 1: "Basic Structure Introduction" - Show the fundamental building blocks, nodes, elements, and their relationships with clear labels and colors
+        * Step 2: "Memory Layout Visualization" - Display how data is stored in memory with address pointers, memory blocks, and allocation patterns
+        * Step 3: "Element Insertion Process" - Animate the step-by-step insertion of elements showing before/after states with visual indicators
+        * Step 4: "Element Deletion Process" - Show removal process with memory cleanup and pointer adjustments
+        * Step 5: "Search/Traversal Visualization" - Demonstrate how elements are accessed, searched, or traversed with path highlighting
+        * Step 6: "Performance Metrics Display" - Show time complexity, space complexity, and real-time performance indicators
+        * Step 7: "Comparison with Other Structures" - Side-by-side comparison showing advantages/disadvantages
+        * Step 8: "Real-world Application Examples" - Visual representation of where this data structure is used in real applications
+      - For Algorithm topics:
+        * Step 1: "Input Data Visualization" - Show initial data state with clear visual representation
+        * Step 2: "Algorithm Initialization" - Display setup phase, variables, and initial conditions
+        * Step 3: "Step-by-Step Execution" - Animate each algorithm step with visual feedback and state changes
+        * Step 4: "Intermediate States" - Show data transformation at each major step
+        * Step 5: "Optimization Visualization" - Display efficiency improvements and optimization techniques
+        * Step 6: "Final Result Display" - Show completed algorithm with final output and analysis
+        * Step 7: "Performance Analysis" - Visual charts showing time/space complexity and efficiency metrics
+        * Step 8: "Edge Cases and Error Handling" - Visual representation of boundary conditions and error scenarios
+      - For Programming Concepts:
+        * Step 1: "Concept Foundation" - Visual introduction to the core concept with diagrams and examples
+        * Step 2: "Component Breakdown" - Show individual parts and how they work together
+        * Step 3: "Flow Control Visualization" - Demonstrate program flow, decision points, and execution paths
+        * Step 4: "Data Flow Diagrams" - Show how data moves through the system
+        * Step 5: "State Management" - Visual representation of variable states and changes
+        * Step 6: "Error Handling Scenarios" - Show different error conditions and how they're handled
+        * Step 7: "Best Practices Display" - Visual examples of good vs bad practices
+        * Step 8: "Real-world Implementation" - Show practical applications and use cases
+      - For System Design topics:
+        * Step 1: "System Architecture Overview" - High-level system diagram with all major components
+        * Step 2: "Component Interaction Flow" - Show how different parts communicate and interact
+        * Step 3: "Data Flow Visualization" - Demonstrate data movement through the system
+        * Step 4: "Scalability Patterns" - Show how the system handles increased load
+        * Step 5: "Security Implementation" - Visual representation of security measures and protocols
+        * Step 6: "Performance Monitoring" - Real-time performance metrics and monitoring dashboards
+        * Step 7: "Failure Scenarios" - Show how the system handles failures and recovery
+        * Step 8: "Optimization Strategies" - Visual examples of system optimization techniques
+      - For Conceptual topics:
+        * Step 1: "Concept Introduction" - Visual foundation with clear explanations and examples
+        * Step 2: "Core Principles Visualization" - Show fundamental principles with interactive diagrams
+        * Step 3: "Relationship Mapping" - Display connections between related concepts
+        * Step 4: "Hierarchy and Classification" - Show concept hierarchy and categorization
+        * Step 5: "Application Scenarios" - Visual examples of where the concept is applied
+        * Step 6: "Comparison Analysis" - Side-by-side comparison with related concepts
+        * Step 7: "Evolution and History" - Show how the concept has developed over time
+        * Step 8: "Future Implications" - Visual representation of future applications and trends
+      - Each completeHtml should be:
+        * A complete HTML file with <!DOCTYPE html>, <html>, <head>, and <body> tags
+        * Include embedded <style> tags for CSS with modern, attractive styling
+        * Include embedded <script> tags for JavaScript with smooth animations
+        * Self-contained (no external dependencies except CDN libraries if needed)
+        * Visually appealing with modern UI design, gradients, shadows, and smooth transitions
+        * Highly interactive with buttons, sliders, animations, real-time updates, and user controls
+        * Responsive and mobile-friendly with adaptive layouts
+        * Include clear visual indicators, progress bars, and status updates
+        * Use color coding, icons, and visual metaphors to enhance understanding
+        * Include tooltips, hover effects, and click interactions for better user experience
+        * Show step-by-step progression with clear visual feedback
+        * Include pause/play controls for animations and step navigation
+        * Use modern CSS features like flexbox, grid, and CSS animations
+        * Include visual feedback for user interactions (hover, click, focus states)
+      - The completeHtml must be a single string containing a complete HTML file that can be rendered directly
+      - Do NOT use Mermaid or any diagram syntax. Only HTML, CSS, and JS.
+      - Focus on visual representation and understanding - avoid showing code in visualizations
+      - Use visual metaphors, diagrams, charts, and interactive elements to explain concepts
+      - Example structure:
+        [
+          {
+            "step": "Basic Structure Setup",
+            "completeHtml": "<!DOCTYPE html><html><head><title>Step 1</title><style>/* Modern CSS with animations */</style></head><body><div id='container'>...</div><script>/* Interactive JS with smooth animations */</script></body></html>",
+            "explanation": "This step shows the basic structure and setup of the concept with interactive elements...",
+            "purpose": "To establish the foundation for understanding the topic with visual clarity..."
+          },
+          {
+            "step": "Data Processing Visualization",
+            "completeHtml": "<!DOCTYPE html><html><head><title>Step 2</title><style>/* Enhanced CSS with visual effects */</style></head><body><div id='process'>...</div><script>/* Advanced JS with real-time updates */</script></body></html>",
+            "explanation": "This step demonstrates how data flows and is processed with visual feedback...",
+            "purpose": "To show the core concept in action with enhanced visual understanding..."
+          }
+        ]
+    5. Points (Min 3 with Each min of 50 characters) 
+      - For example if its Code then Give Time and Space Complexity like that others give Other related to it
+      - Important Points to About the Person Or Any Topic
+    6. Code (If applicable)
+      - For code topics:
+        * Provide a small, easy-to-understand implementation
+        * Keep the code simple and focused on the core concept
+        * Include only essential functionality
+        * Use clear variable names and comments
+        * Show basic input/output
+        * Format: {
+          "topicofcode": "Simple Implementation of [Topic]",
+          "tcode": "Complete, working code example"
+        }
+      - For non-code topics:
+        * Provide a text-based representation or example
+        * Use clear formatting and structure
+        * Include relevant diagrams or visualizations
+        * Format: {
+          "topicofcode": "Example of [Topic]",
+          "tcode": "Text-based example or representation"
+        }
+      - The code/example should be:
+        * Easy to understand
+        * Well-documented
+        * Follow best practices
+        * Include comments explaining key parts
+        * Show clear progression of concepts
+    7. Code Explanation (If code is present then its compulsory)
+      - For code topics:
+        * Explain each line of code
+        * Describe the purpose of each function
+        * Explain the logic and flow
+        * Highlight important concepts
+        * Show how the code works step by step
+      - For non-code topics:
+        * Explain the example or representation
+        * Break down the concept into parts
+        * Show how different elements relate
+        * Explain the significance of each part
+      - Format: [
+        {
+          "code": "Code snippet or example part",
+          "explain": "Detailed explanation of this part"
+        }
+      ]
+    8. Importance (3-5 points)
+      -Importance or Advantages About the Topic
+      - Highlight key reasons why this topic matters.
+      - Discuss modern applications and real-world impact.
+    9. Prerequisites (1-5 points)
+      - List the fundamental concepts or topics that should be understood before learning this topic
+      - Include any required background knowledge or skills
+      - Specify any tools, software, or resources needed
+    10. Learning Objectives (2-5 points)
+      - Define clear, measurable outcomes that learners should achieve
+      - Include both theoretical understanding and practical skills
+      - Focus on what learners will be able to do after mastering the topic
+    11. Common Misconceptions (2-4 points)
+        - Identify frequent misunderstandings about the topic
+        - Provide detailed explanations of why these misconceptions occur
+        - Offer clear corrections and proper understanding
+        - Include real-world examples to illustrate the correct concepts
+    12. Practice Exercises (2-4 problems)
+        - Create exercises of varying difficulty levels (beginner, intermediate, advanced)
+        - Include detailed solutions and explanations
+        - Focus on practical application of the concepts
+        - Provide step-by-step guidance for solving each problem
+    13. Search Taglines
+        - Provide one optimized search tagline for web and one for YouTube
+        - The taglines should be:
+          * Concise and focused on the main topic
+          * Optimized for search engines
+          * For web search: focus on finding comprehensive articles and documentation
+          * For YouTube: focus on finding the best video tutorials and explanations
+    `;
 
     const result = await generateObject({
       model: google('gemini-2.0-flash-exp'),
@@ -525,6 +522,7 @@ export default async function handler(req, res) {
         description: `Basic information about ${topic}. This is a simplified response as the detailed generation failed.`,
         webSearchTagline: `${topic} basic information and tutorials`,
         youtubeSearchTagline: `${topic} tutorials and explanations`,
+        visualizationHtml: [],
         youtubeResults: [],
         webResults: []
       });

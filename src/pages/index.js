@@ -1,5 +1,6 @@
 "use client";
 import "../app/globals.css";
+import Head from "next/head";
 import { motion } from "framer-motion";
 import { 
   Sparkles, 
@@ -122,6 +123,10 @@ export default function HomePage() {
         p-6 md:p-12
       "
     >
+      <Head>
+        <title>Ai-Learn - Intelligent Learning Reimagined</title>
+        <meta name="description" content="Harness the power of AI to create personalized, adaptive learning paths that evolve with your knowledge and goals." />
+      </Head>
       {/* Floating Particle Background */}
       <div className="absolute inset-0 pointer-events-none">
         {[...Array(20)].map((_, i) => (

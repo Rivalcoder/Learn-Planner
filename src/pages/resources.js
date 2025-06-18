@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import Head from "next/head";
 import { motion, AnimatePresence } from "framer-motion";
 import mermaid from 'mermaid';
 import { Highlight, themes } from 'prism-react-renderer';
@@ -21,7 +22,8 @@ import {
   Youtube,
   Target,
   AlertTriangle,
-  Terminal
+  Terminal,
+  ChevronLeft
 } from "lucide-react";
 import "../app/globals.css";
 
@@ -273,6 +275,186 @@ const DataStructureVisualization = ({ visualization }) => {
   );
 };
 
+const StepByStepVisualization = ({ visualizationSteps }) => {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [autoPlay, setAutoPlay] = useState(false);
+  const [autoPlaySpeed, setAutoPlaySpeed] = useState(3000); // 3 seconds
+
+  if (!visualizationSteps || visualizationSteps.length === 0) return null;
+
+  const handleNext = () => {
+    if (currentStep < visualizationSteps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    } else if (autoPlay) {
+      // Loop back to first step if auto-playing
+      setCurrentStep(0);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') {
+      e.preventDefault();
+      handleNext();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      handlePrevious();
+    }
+  };
+
+  // Auto-play effect
+  useEffect(() => {
+    let interval;
+    if (autoPlay && visualizationSteps.length > 1) {
+      interval = setInterval(handleNext, autoPlaySpeed);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [autoPlay, currentStep, autoPlaySpeed, visualizationSteps.length]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyPress);
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [currentStep, autoPlay]);
+
+  const currentVisualization = visualizationSteps[currentStep];
+
+  return (
+    <div className="space-y-6">
+      {/* Controls */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handlePrevious}
+            disabled={currentStep === 0}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+              currentStep === 0
+                ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                : 'bg-indigo-500 text-white hover:bg-indigo-600'
+            }`}
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Previous
+          </button>
+          
+          <button
+            onClick={handleNext}
+            disabled={currentStep === visualizationSteps.length - 1 && !autoPlay}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+              currentStep === visualizationSteps.length - 1 && !autoPlay
+                ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                : 'bg-indigo-500 text-white hover:bg-indigo-600'
+            }`}
+          >
+            Next
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-4">
+          {/* Auto-play controls */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setAutoPlay(!autoPlay)}
+              className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                autoPlay
+                  ? 'bg-green-500 text-white hover:bg-green-600'
+                  : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+              }`}
+            >
+              {autoPlay ? '⏸️ Pause' : '▶️ Auto-play'}
+            </button>
+            {autoPlay && (
+              <select
+                value={autoPlaySpeed}
+                onChange={(e) => setAutoPlaySpeed(Number(e.target.value))}
+                className="px-2 py-1 rounded text-sm bg-gray-700 text-gray-300 border border-gray-600"
+              >
+                <option value={1000}>1s</option>
+                <option value={2000}>2s</option>
+                <option value={3000}>3s</option>
+                <option value={5000}>5s</option>
+              </select>
+            )}
+          </div>
+
+          {/* Step indicator */}
+          <span className="text-gray-300 text-sm">
+            {currentStep + 1} / {visualizationSteps.length}
+          </span>
+        </div>
+      </div>
+
+      {/* Step dots */}
+      <div className="flex justify-center space-x-2">
+        {visualizationSteps.map((_, index) => (
+          <button
+            key={index}
+            onClick={() => setCurrentStep(index)}
+            className={`w-3 h-3 rounded-full transition-all duration-300 ${
+              index === currentStep
+                ? 'bg-indigo-500 scale-125'
+                : 'bg-gray-600 hover:bg-gray-500'
+            }`}
+            title={`Go to step ${index + 1}`}
+          />
+        ))}
+      </div>
+
+      {/* Current Step Info */}
+      <div className="bg-gray-700/50 rounded-xl p-4 border border-gray-600">
+        <h3 className="text-lg font-semibold text-white mb-2">
+          {currentVisualization.step}
+        </h3>
+        <p className="text-gray-300 text-sm mb-3">
+          {currentVisualization.explanation}
+        </p>
+        <p className="text-indigo-400 text-sm">
+          <span className="font-medium">Purpose:</span> {currentVisualization.purpose}
+        </p>
+      </div>
+
+      {/* Visualization Display */}
+      <div className="w-full h-[500px] rounded-xl overflow-hidden border border-gray-700 bg-black relative">
+        <iframe
+          srcDoc={currentVisualization.completeHtml}
+          title={`Visualization Step ${currentStep + 1}`}
+          sandbox="allow-scripts allow-same-origin"
+          className="w-full h-full border-0 rounded-xl bg-black"
+          loading="lazy"
+        />
+        
+        {/* Step overlay */}
+        <div className="absolute top-4 right-4 bg-black/70 text-white px-3 py-1 rounded-lg text-sm">
+          Step {currentStep + 1}
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="w-full bg-gray-700 rounded-full h-2">
+        <div 
+          className="bg-indigo-500 h-2 rounded-full transition-all duration-300"
+          style={{ width: `${((currentStep + 1) / visualizationSteps.length) * 100}%` }}
+        />
+      </div>
+
+      {/* Keyboard shortcuts hint */}
+      <div className="text-center text-gray-400 text-xs">
+        💡 Use arrow keys or spacebar to navigate • Click dots to jump to any step
+      </div>
+    </div>
+  );
+};
+
 export default function TopicDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -280,6 +462,7 @@ export default function TopicDetailsPage() {
   const searchParams = useSearchParams();
   const topic = searchParams.get("find");
   const [click, setClick] = useState(null);
+  const [visualizationClick, setVisualizationClick] = useState(null);
 
   useEffect(() => {
     if (topic) {
@@ -316,6 +499,9 @@ export default function TopicDetailsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center">
+        <Head>
+          <title>{topic ? `Loading ${topic}...` : 'Loading...'} - Ai-Learn</title>
+        </Head>
         <div className="text-center space-y-8">
           <div className="relative">
             {/* Outer Ring */}
@@ -347,6 +533,9 @@ export default function TopicDetailsPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center">
+        <Head>
+          <title>{topic ? `Error loading ${topic}` : 'Error'} - Ai-Learn</title>
+        </Head>
         <div className="text-center space-y-6">
           <div className="relative">
             {/* Error Icon with Animation */}
@@ -367,6 +556,9 @@ export default function TopicDetailsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-6">
+      <Head>
+        <title>{content?.topic ? `${content.topic} - Resource Details` : `${topic || 'Topic'} - Ai-Learn`}</title>
+      </Head>
       <div className="max-w-5xl mx-auto">
         {content && (
           <motion.div 
@@ -408,13 +600,51 @@ export default function TopicDetailsPage() {
             </motion.div>
 
             {/* Visualization Section */}
-            {content.visualization && (
+            {content.visualizationHtml && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
+                className="bg-gray-800/60 backdrop-blur-sm rounded-2xl p-6 border border-gray-700"
               >
-                <DataStructureVisualization visualization={content.visualization} />
+                <button
+                  onClick={() => setVisualizationClick(visualizationClick === 'main-visualization' ? null : 'main-visualization')}
+                  className="w-full text-left flex items-center justify-between group mb-4"
+                >
+                  <h2 className="text-2xl font-semibold text-white flex items-center gap-2">
+                    <Brain className="w-6 h-6 text-indigo-400" />
+                    Visualization
+                  </h2>
+                  <span className="text-sm text-gray-400 group-hover:text-white transition-colors">
+                    {visualizationClick === 'main-visualization' ? "Hide Visualization" : "Show Visualization"}
+                  </span>
+                </button>
+                
+                <AnimatePresence>
+                  {visualizationClick === 'main-visualization' && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {/* Check if visualizationHtml is an array (new format) or string (old format) */}
+                      {Array.isArray(content.visualizationHtml) ? (
+                        <StepByStepVisualization visualizationSteps={content.visualizationHtml} />
+                      ) : (
+                        <div className="w-full h-[500px] rounded-xl overflow-hidden border border-gray-700 bg-black">
+                          <iframe
+                            srcDoc={content.visualizationHtml}
+                            title="Visualization"
+                            sandbox="allow-scripts allow-same-origin"
+                            className="w-full h-full border-0 rounded-xl bg-black"
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             )}
 
@@ -457,6 +687,38 @@ export default function TopicDetailsPage() {
                           className="mt-4"
                         >
                           <p className="text-gray-300 mb-4">{example.subexplain}</p>
+                          
+                          {/* Subtopic Visualization - Inside the subtopic content */}
+                          {example.subtopicVisualizationHtml && example.subtopicVisualizationHtml.length > 0 && (
+                            <div className="mb-6">
+                              <button
+                                onClick={() => setVisualizationClick(visualizationClick === `subtopic-viz-${index}` ? null : `subtopic-viz-${index}`)}
+                                className="w-full text-left flex items-center justify-between group mb-4"
+                              >
+                                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                                  <Brain className="w-5 h-5 text-indigo-400" />
+                                  {example.subtop} Visualization
+                                </h3>
+                                <span className="text-sm text-gray-400 group-hover:text-white transition-colors">
+                                  {visualizationClick === `subtopic-viz-${index}` ? "Hide Visualization" : "Show Visualization"}
+                                </span>
+                              </button>
+                              
+                              <AnimatePresence>
+                                {visualizationClick === `subtopic-viz-${index}` && (
+                                  <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: "auto" }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                  >
+                                    <StepByStepVisualization visualizationSteps={example.subtopicVisualizationHtml} />
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          )}
+                          
                           {example.subexample && (
                             <pre className="bg-gray-900/50 text-white p-4 rounded-xl overflow-x-auto text-sm mb-4 border border-gray-700">
                               <code>{example.subexample}</code>

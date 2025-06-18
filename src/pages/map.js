@@ -1,5 +1,6 @@
 "use client";
 import "../app/globals.css";
+import Head from "next/head";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from "framer-motion";
@@ -164,6 +165,9 @@ export default function LearningPathGenerator() {
 
   return (
     <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black min-h-screen p-6 text-white">
+      <Head>
+        <title>Learning Path Generator</title>
+      </Head>
       <div className="max-w-5xl mx-auto">
         {/* Reset Button - Only shown when topics exist */}
         {topics.length > 0 && (

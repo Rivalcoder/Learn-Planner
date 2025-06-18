@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
 import '../app/globals.css';
+import Head from "next/head";
 import { useRouter } from 'next/navigation';
 import { motion } from "framer-motion";
 import { 
@@ -82,6 +83,9 @@ export default function Search() {
 
   return (
     <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black min-h-screen p-6 text-white">
+      <Head>
+        <title>AI Search</title>
+      </Head>
       <div className="max-w-5xl mx-auto">
         <motion.div 
           initial={{ opacity: 0, y: -20 }}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import Head from "next/head";
 
 export default function Home() {
   const [headings, setHeadings] = useState([]);
@@ -88,6 +89,9 @@ export default function Home() {
 
   return (
     <div style={{ padding: "20px", fontFamily: "Arial, sans-serif" }}>
+      <Head>
+        <title>Saved Page</title>
+      </Head>
       <h2>Headings</h2>
       <ul>
         {headings.map((heading, index) => (
