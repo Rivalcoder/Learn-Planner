@@ -93,6 +93,26 @@ const fallbackSchema = z.object({
   })).describe("An array of step-by-step visualization components for the topic")
 });
 
+// Retry function with exponential backoff
+async function retryWithBackoff(fn, maxRetries = 3, baseDelay = 1000) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      console.error(`Attempt ${attempt} failed:`, error.message);
+      
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Exponential backoff with jitter
+      const delay = baseDelay * Math.pow(2, attempt - 1) + Math.random() * 1000;
+      console.log(`Retrying in ${Math.round(delay)}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
 async function fetchYouTubeVideos(query) {
   try {
     const response = await axios.get('https://www.googleapis.com/youtube/v3/search', {
@@ -161,27 +181,50 @@ async function fetchWebResults(query) {
 async function getFallbackResponse(topic) {
   try {
     const fallbackPrompt = `
-      Provide basic information about "${topic}" following this structure:
-      1. A clear topic name
-      2. A simple description
-      3. Subtopic Generation (MANDATORY - Generate subtopics for topics that can be broken down):
-         - Generate 1-3 subtopics for topics with multiple components or aspects
-         - Each subtopic should include:
-           * subtop: Subtopic name
-           * subexplain: Brief explanation of the subtopic
-           * subtopicVisualizationHtml: Array of 2-3 visualization steps for this subtopic
-             - Each step should have: step name, completeHtml (self-contained HTML), explanation, and purpose
-             - Focus on visual representation specific to this subtopic
-      4. A web search tagline optimized for finding articles
-      5. A YouTube search tagline optimized for finding video tutorials
-      6. A visualizationHtml array containing step-by-step visualization components for the main topic. Each component should have:
+      Provide comprehensive information about "${topic}" following this structured format:
+      
+      1. Topic Name: A clear, concise title for the topic
+      
+      2. Description: A detailed explanation (minimum 100 words) that covers:
+         - What the topic is and its purpose
+         - Why it's important to learn
+         - Basic concepts and principles
+         - Real-world applications and relevance
+      
+      3. Subtopic Generation (MANDATORY for topics with multiple components):
+         Generate 2-4 subtopics for topics that can be broken down into distinct concepts.
+         Each subtopic should include:
+         - subtop: Clear subtopic name
+         - subexplain: Detailed explanation (minimum 50 words) covering purpose, relevance, and relationship to main topic
+         - subtopicVisualizationHtml: Array of 2-3 visualization steps for this subtopic
+           * Each step should have: step name, completeHtml (self-contained HTML with CSS/JS), explanation, and purpose
+           * Focus on visual representation specific to this subtopic
+           * Include interactive elements and animations
+           * Use modern UI design with colors, gradients, and smooth transitions
+      
+      4. Visualization Components:
+         Create an array of 3-5 step-by-step visualization components for the main topic.
+         Each component should include:
          - step: Step name or description
-         - completeHtml: Complete, self-contained HTML file with embedded CSS and JS that can be rendered directly in a browser
-         - explanation: What this step shows
-         - purpose: Why this step is important
-       Keep the response simple and focused on the essential information.
-       Make sure to include ALL required fields: topic, description, subtopics (when applicable), webSearchTagline, youtubeSearchTagline, and visualizationHtml as an array.
-       ALWAYS generate subtopics for topics that have multiple components, concepts, or aspects.
+         - completeHtml: Complete, self-contained HTML file with embedded CSS and JS
+         - explanation: What this visualization step shows
+         - purpose: Why this step is important for understanding
+         
+         Visualization guidelines:
+         - Use modern, attractive styling with gradients and animations
+         - Include interactive elements like buttons, sliders, and real-time updates
+         - Make it responsive and mobile-friendly
+         - Focus on visual understanding rather than code display
+         - Use color coding and visual metaphors
+         - Include step navigation and progress indicators
+      
+      5. Search Optimization:
+         - webSearchTagline: Optimized search term for finding comprehensive articles and documentation
+         - youtubeSearchTagline: Optimized search term for finding video tutorials and explanations
+      
+      Ensure the response is comprehensive, well-structured, and provides valuable learning content.
+      Focus on practical understanding and visual learning rather than theoretical explanations.
+      Make visualizations engaging and interactive to enhance the learning experience.
     `;
 
     const result = await generateObject({
@@ -230,8 +273,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Try the main detailed model first
-    const promptWithTopic = `
+    // Main attempt with retry mechanism
+    const result = await retryWithBackoff(async () => {
+      const promptWithTopic = `
     Provide detailed information on the topic: "${topic}" following these structured guidelines:
     1. Topic Header (Max 50 characters)
       A clear and concise title summarizing the topic.
@@ -322,7 +366,11 @@ export default async function handler(req, res) {
         * DevOps (e.g., CI/CD, Containerization, Orchestration, Monitoring)
         * Any topic that has multiple components, phases, or aspects
     4. Visualization (MANDATORY for all topics - Enhanced with more steps and better visual understanding)
-      - EVERY topic must include a visualizationHtml field containing an array of step-by-step visualization components.
+      - EVERY topic must include a visualizationHtml field containing an array of step-by-step visualization Animated Diagrams or Visual Elements.
+       *** Above Code and below code (HTML, CSS, JS) are Only Samples Not Complete Code You SHould Give Complete Good Code With Animated elements and Easy Understanding visual elements 
+       *** Dont Give Large Paragraphs and Codes and Explanations instead Give Visual Diagrams and animations and interactive elements
+       *** Give More  Visual Elements Step Diagrams So User can Understand  Dont Give Theory Like Give Diagrams and Flowschart and etc Can Understand by viewing and Interacting with it
+      *** Output Can Easily Understand By Seeing and Interacting with it Not By Completely Reading Like that So Generate Html css Js COmplete Code Accordingly for all Visualization Areas Keep that In Mind Give Animations and Interactive Elements and Use Different Colors except black
       - Each visualization component should follow this structure:
         {
           "step": "Step name or description (e.g., 'Initial Setup', 'Data Flow', 'Algorithm Execution')",
@@ -409,6 +457,9 @@ export default async function handler(req, res) {
             "purpose": "To show the core concept in action with enhanced visual understanding..."
           }
         ]
+
+        ## Above Code are Only Samples Not Complete Code You SHould Give Complete Good Code With Animated elements and Easy Understanding visual elements 
+        ## Dont Give Large Paragraphs and Codes and Explanations instead Give Visual Diagrams and animations and interactive elements
     5. Points (Min 3 with Each min of 50 characters) 
       - For example if its Code then Give Time and Space Complexity like that others give Other related to it
       - Important Points to About the Person Or Any Topic
@@ -486,11 +537,12 @@ export default async function handler(req, res) {
           * For YouTube: focus on finding the best video tutorials and explanations
     `;
 
-    const result = await generateObject({
-      model: google('gemini-2.0-flash-exp'),
-      schema: topicSchema,
-      prompt: promptWithTopic,
-      apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+      return await generateObject({
+        model: google('gemini-2.0-flash-exp'),
+        schema: topicSchema,
+        prompt: promptWithTopic,
+        apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+      });
     });
 
     // Fetch URLs using the generated taglines
@@ -505,27 +557,37 @@ export default async function handler(req, res) {
       webResults
     };
 
-    console.log(response);
+    console.log('Main generation successful');
     res.status(200).json(response);
   } catch (error) {
-    console.error('Main model error:', error);
+    console.error('Main generation failed after retries:', error);
+    
     try {
-      // If main model fails, try the fallback model
-      const fallbackResponse = await getFallbackResponse(topic);
-      console.log(fallbackResponse);
+      // Fallback attempt with retry mechanism
+      console.log('Attempting fallback generation...');
+      const fallbackResponse = await retryWithBackoff(async () => {
+        return await getFallbackResponse(topic);
+      });
+      
+      console.log('Fallback generation successful');
       res.status(200).json(fallbackResponse);
     } catch (fallbackError) {
-      console.error('Both models failed:', fallbackError);
-      // Return a minimal response if both models fail
-      res.status(200).json({
+      console.error('Fallback generation also failed:', fallbackError);
+      
+      // Final fallback - return basic structure
+      const basicResponse = {
         topic: topic,
         description: `Basic information about ${topic}. This is a simplified response as the detailed generation failed.`,
+        subtopics: [],
         webSearchTagline: `${topic} basic information and tutorials`,
         youtubeSearchTagline: `${topic} tutorials and explanations`,
         visualizationHtml: [],
         youtubeResults: [],
         webResults: []
-      });
+      };
+      
+      console.log('Returning basic fallback response');
+      res.status(200).json(basicResponse);
     }
   }
 }
