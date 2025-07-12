@@ -25,25 +25,54 @@ async function retryWithBackoff(fn, maxRetries = 3, baseDelay = 1000) {
 // Fallback response generator
 async function getFallbackResponse(title, difficulty) {
   const fallbackPrompt = `
-    Generate a structured learning plan for "${title}" with difficulty levels: ${difficulty.join(", ")}.
+    Create a comprehensive learning plan for "${title}" tailored to difficulty level: ${difficulty.join(", ")}.
     
-    Follow these guidelines:
-    - If Easy level: Provide 3-4 high-priority topics with essential subtopics
-    - If Medium level: Provide 4-6 topics with comprehensive subtopics covering core concepts
-    - If Hard level: Provide 6-8 topics with detailed subtopics covering all aspects
+    IMPORTANT GUIDELINES:
+    - Each topic should be a distinct, separate learning area
+    - Subtopics should be specific, actionable learning objectives within each topic
+    - NO combining of topics - keep them separate and focused
+    - Ensure logical progression from foundational to advanced concepts
     
-    For each topic:
-    1. Provide a clear, descriptive name
-    2. Include 3-5 essential subtopics that are fundamental to understanding
-    3. Focus on practical, hands-on learning
-    4. Ensure logical progression from basic to advanced concepts
-    5. Include introduction and foundational topics
+    DIFFICULTY-BASED REQUIREMENTS:
     
-    Structure the response as an array of topics, each with:
-    - name: Clear topic title
-    - subtopics: Array of essential subtopic names
+    EASY LEVEL:
+    - 4-5 core topics covering essential fundamentals
+    - 3-4 subtopics per topic focusing on basic concepts
+    - Focus on getting started and core principles
+    - Include: Introduction, Basic Concepts, Core Fundamentals, Essential Applications
     
-    Make sure the learning path is comprehensive yet manageable for the specified difficulty level.
+    MEDIUM LEVEL:
+    - 6-8 topics covering comprehensive understanding
+    - 4-6 subtopics per topic with practical applications
+    - Include intermediate concepts and real-world usage
+    - Add: Advanced Fundamentals, Practical Implementation, Problem-Solving, Best Practices
+    
+    HARD LEVEL:
+    - 8-12 topics covering complete mastery
+    - 5-8 subtopics per topic with detailed breakdown
+    - Include advanced techniques, optimization, and expert-level concepts
+    - Comprehensive coverage: From basics to expert-level mastery
+    - Add: Advanced Techniques, Optimization, Expert Patterns, Industry Standards, Advanced Problem-Solving
+    
+    TOPIC STRUCTURE REQUIREMENTS:
+    1. Start with "Introduction to [Topic]" for foundational concepts
+    2. Include "Core [Topic] Concepts" for fundamental understanding
+    3. Add "Advanced [Topic]" for higher-level concepts
+    4. Include practical topics like "Real-world Applications" and "Best Practices"
+    5. For Hard level: Add "Expert-level [Topic]" and "Advanced Optimization"
+    
+    SUBTOPIC REQUIREMENTS:
+    - Each subtopic should be a specific, learnable concept
+    - Focus on practical, hands-on learning objectives
+    - Include both theoretical understanding and practical application
+    - Ensure progressive difficulty within each topic
+    
+    RESPONSE FORMAT:
+    Return an array of topics, each containing:
+    - name: Clear, descriptive topic title
+    - subtopics: Array of specific, actionable subtopic names
+    
+    Make the learning path comprehensive, well-structured, and appropriate for the specified difficulty level.
   `;
 
   const result = await generateObject({
@@ -79,7 +108,7 @@ export default async function handler(req, res) {
     // Main attempt with retry mechanism
     const result = await retryWithBackoff(async () => {
       return await generateObject({
-        model: google('gemini-2.0-flash-exp'),
+        model: google('gemini-1.5-flash'),
         schema: z.object({
           topics: z.array(
             z.object({
@@ -88,7 +117,53 @@ export default async function handler(req, res) {
             })
           ),
         }),
-        prompt: `Generate a structured learning plan for "${title}" with difficulty levels: ${difficulty.join(", ")}.If Easy is level then Provide Topics With High Important and if Its Medium Provided Some More Topics All Next Priority if Hard is Chosed then Provided all Topics in that with all Sub Topics in that also Dont Miss Any Topics or Sub Topics In That . Provide All Level With Introduction`,
+        prompt: `Create a comprehensive learning plan for "${title}" with difficulty level: ${difficulty.join(", ")}.
+
+IMPORTANT REQUIREMENTS:
+- Generate separate, distinct topics (NO combining topics)
+- Each topic should be a focused learning area
+- Subtopics should be specific, actionable learning objectives
+- Ensure complete coverage from basic to advanced based on difficulty level
+
+DIFFICULTY-BASED STRUCTURE:
+
+EASY LEVEL (4-5 topics):
+- Introduction to [Topic] - Basic concepts, getting started, fundamentals
+- Core [Topic] Fundamentals - Essential principles, basic operations, key concepts
+- Essential [Topic] Applications - Practical usage, common scenarios, basic implementations
+- [Topic] Best Practices - Basic guidelines, common patterns, fundamental techniques
+
+MEDIUM LEVEL (6-8 topics):
+- Introduction to [Topic] - Comprehensive overview, foundational concepts
+- Core [Topic] Fundamentals - Detailed principles, intermediate operations, advanced basics
+- Advanced [Topic] Concepts - Complex operations, sophisticated techniques, deeper understanding
+- Practical [Topic] Implementation - Real-world applications, hands-on projects, practical scenarios
+- [Topic] Problem-Solving - Common challenges, solution patterns, troubleshooting
+- [Topic] Best Practices & Optimization - Performance tips, efficiency techniques, industry standards
+- Advanced [Topic] Applications - Complex use cases, advanced implementations, specialized scenarios
+
+HARD LEVEL (8-12 topics):
+- Introduction to [Topic] - Complete overview, all foundational concepts
+- Core [Topic] Fundamentals - Comprehensive principles, all basic operations
+- Intermediate [Topic] Concepts - Advanced basics, sophisticated fundamentals
+- Advanced [Topic] Techniques - Complex operations, expert-level techniques, advanced methodologies
+- Expert [Topic] Implementation - Master-level applications, complex real-world scenarios
+- Advanced [Topic] Problem-Solving - Complex challenges, advanced solution patterns, optimization techniques
+- [Topic] Performance Optimization - Advanced optimization, efficiency maximization, performance tuning
+- Expert [Topic] Patterns - Advanced design patterns, sophisticated architectures, expert-level patterns
+- [Topic] Industry Standards - Professional standards, enterprise-level practices, industry best practices
+- Advanced [Topic] Applications - Complex use cases, specialized implementations, cutting-edge applications
+- [Topic] Mastery Techniques - Expert-level mastery, advanced optimization, ultimate techniques
+- [Topic] Advanced Problem-Solving - Complex scenarios, expert-level challenges, mastery-level solutions
+
+SUBDIVISION REQUIREMENTS:
+- Each topic must have 3-8 subtopics (based on difficulty)
+- Subtopics should be specific, learnable concepts
+- Include both theoretical understanding and practical application
+- Ensure progressive difficulty within each topic
+- Focus on hands-on, practical learning objectives
+
+Generate a structured, comprehensive learning path that covers all necessary concepts for the specified difficulty level, ensuring complete mastery from basic to advanced concepts.`,
         apiKey: apiKey,
       });
     });

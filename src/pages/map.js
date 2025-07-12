@@ -15,8 +15,48 @@ import {
   Sparkles,
   Brain,
   Zap,
-  Rocket
+  Rocket,
+  Loader2
 } from "lucide-react";
+
+// Loading Animation Component
+const LoadingAnimation = ({ title, isGenerating = false }) => {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center">
+      <Head>
+        <title>{title ? `Generating ${title}...` : 'Generating Learning Path...'} - Ai-Learn</title>
+      </Head>
+      <div className="text-center space-y-8">
+        <div className="relative">
+          {/* Outer Ring */}
+          <div className="absolute inset-0 w-24 h-24 border-4 border-indigo-500/20 rounded-full animate-pulse" />
+          {/* Middle Ring */}
+          <div className="absolute inset-0 w-24 h-24 border-4 border-indigo-500/40 rounded-full animate-ping" style={{ animationDelay: '0.2s' }} />
+          {/* Inner Ring */}
+          <div className="absolute inset-0 w-24 h-24 border-4 border-indigo-500/60 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }} />
+          {/* Center Icon */}
+          <div className="relative w-24 h-24 flex items-center justify-center">
+            <BookOpen className="w-12 h-12 text-indigo-500 animate-bounce" style={{ animationDelay: '0.6s' }} />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <p className="text-xl text-gray-300 font-medium">
+            {isGenerating ? "Generating learning path..." : "Creating your personalized learning journey..."}
+          </p>
+          <p className="text-sm text-gray-400">
+            {isGenerating ? "Building comprehensive learning modules" : "This may take a few moments"}
+          </p>
+        </div>
+        {/* Loading Dots */}
+        <div className="flex items-center justify-center space-x-2">
+          <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
+          <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+          <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function LearningPathGenerator() {
   const [title, setTitle] = useState("");
@@ -162,6 +202,11 @@ export default function LearningPathGenerator() {
     setSelectedDifficulty('medium');
     localStorage.removeItem('learningPathData');
   };
+
+  // Show loading animation when generating
+  if (loading) {
+    return <LoadingAnimation title={title} isGenerating={true} />;
+  }
 
   return (
     <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black min-h-screen p-6 text-white">

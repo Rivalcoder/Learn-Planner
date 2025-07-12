@@ -23,7 +23,10 @@ import {
   Target,
   AlertTriangle,
   Terminal,
-  ChevronLeft
+  ChevronLeft,
+  ExternalLink,
+  Trophy,
+  Star
 } from "lucide-react";
 import "../app/globals.css";
 
@@ -45,22 +48,48 @@ mermaid.initialize({
 });
 
 const CodeBlock = ({ code, language = "javascript" }) => {
+  // Map common language names to prism language codes
+  const languageMap = {
+    'java': 'java',
+    'javascript': 'javascript',
+    'js': 'javascript',
+    'python': 'python',
+    'py': 'python',
+    'cpp': 'cpp',
+    'c++': 'cpp',
+    'c': 'c',
+    'html': 'markup',
+    'css': 'css',
+    'sql': 'sql',
+    'bash': 'bash',
+    'shell': 'bash',
+    'typescript': 'typescript',
+    'ts': 'typescript'
+  };
+
+  const prismLanguage = languageMap[language.toLowerCase()] || language;
+
   return (
     <Highlight
       theme={themes.nightOwl}
       code={code}
-      language={language}
+      language={prismLanguage}
     >
       {({ className, style, tokens, getLineProps, getTokenProps }) => (
-        <pre className={`${className} p-4 rounded-xl overflow-x-auto text-sm border border-gray-700`} style={style}>
-          {tokens.map((line, i) => (
-            <div key={i} {...getLineProps({ line })}>
-              {line.map((token, key) => (
-                <span key={key} {...getTokenProps({ token })} />
-              ))}
-            </div>
-          ))}
-        </pre>
+        <div className="relative">
+          <div className="absolute top-0 right-0 bg-gray-800 text-gray-400 text-xs px-3 py-1 rounded-bl-lg border-l border-b border-gray-700">
+            {language.toUpperCase()}
+          </div>
+          <pre className={`${className} p-4 pt-8 rounded-xl overflow-x-auto text-sm border border-gray-700 bg-gray-900/50`} style={style}>
+            {tokens.map((line, i) => (
+              <div key={i} {...getLineProps({ line })} className="leading-relaxed">
+                {line.map((token, key) => (
+                  <span key={key} {...getTokenProps({ token })} />
+                ))}
+              </div>
+            ))}
+          </pre>
+        </div>
       )}
     </Highlight>
   );
@@ -455,10 +484,66 @@ const StepByStepVisualization = ({ visualizationSteps }) => {
   );
 };
 
+// Global cache for storing generated content with localStorage persistence
+const contentCache = new Map();
+
+// Load cache from localStorage on initialization
+const loadCacheFromStorage = () => {
+  try {
+    // Check if we're in a browser environment
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const cachedData = localStorage.getItem('learnPlanContentCache');
+      if (cachedData) {
+        const parsedCache = JSON.parse(cachedData);
+        contentCache.clear();
+        Object.entries(parsedCache).forEach(([key, value]) => {
+          contentCache.set(key, value);
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error loading cache from localStorage:', error);
+  }
+};
+
+// Save cache to localStorage
+const saveCacheToStorage = () => {
+  try {
+    // Check if we're in a browser environment
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const cacheObject = {};
+      contentCache.forEach((value, key) => {
+        cacheObject[key] = value;
+      });
+      localStorage.setItem('learnPlanContentCache', JSON.stringify(cacheObject));
+    }
+  } catch (error) {
+    console.error('Error saving cache to localStorage:', error);
+  }
+};
+
+// Clean up old cache entries (keep only last 20 entries)
+const cleanupCache = () => {
+  if (contentCache.size > 20) {
+    const entries = Array.from(contentCache.entries());
+    const entriesToKeep = entries.slice(-20);
+    contentCache.clear();
+    entriesToKeep.forEach(([key, value]) => {
+      contentCache.set(key, value);
+    });
+    saveCacheToStorage();
+  }
+};
+
+// Initialize cache from localStorage
+loadCacheFromStorage();
+
 export default function TopicDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [content, setContent] = useState(null);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [loadedFromCache, setLoadedFromCache] = useState(false);
   const searchParams = useSearchParams();
   const topic = searchParams.get("find");
   const [click, setClick] = useState(null);
@@ -466,13 +551,23 @@ export default function TopicDetailsPage() {
 
   useEffect(() => {
     if (topic) {
-      fetchTopicDetails(topic);
+      fetchTopicDetails(topic, false);
     }
   }, [topic]);
 
-  const fetchTopicDetails = async (topicName) => {
+  const fetchTopicDetails = async (topicName, forceRegenerate = false) => {
+    // Check cache first (unless regenerating)
+    if (!forceRegenerate && contentCache.has(topicName)) {
+      setContent(contentCache.get(topicName));
+      setLoading(false);
+      setLoadedFromCache(true);
+      return;
+    }
+
     setLoading(true);
     setError(null);
+    setIsRegenerating(forceRegenerate);
+    setLoadedFromCache(false);
 
     try {
       const response = await fetch("/api/resourcelist", {
@@ -488,11 +583,25 @@ export default function TopicDetailsPage() {
       }
 
       const data = await response.json();
+      
+      // Cache the result
+      contentCache.set(topicName, data);
+      
+      // Clean up old entries and save to localStorage
+      cleanupCache();
+      
       setContent(data);
     } catch (err) {
       setError(err.message || "An unexpected error occurred.");
     } finally {
       setLoading(false);
+      setIsRegenerating(false);
+    }
+  };
+
+  const handleRegenerate = () => {
+    if (topic) {
+      fetchTopicDetails(topic, true);
     }
   };
 
@@ -516,8 +625,12 @@ export default function TopicDetailsPage() {
             </div>
           </div>
           <div className="space-y-2">
-            <p className="text-xl text-gray-300 font-medium">Generating detailed content...</p>
-            <p className="text-sm text-gray-400">This may take a few moments</p>
+            <p className="text-xl text-gray-300 font-medium">
+              {isRegenerating ? "Regenerating content..." : "Generating detailed content..."}
+            </p>
+            <p className="text-sm text-gray-400">
+              {isRegenerating ? "Creating fresh content for this topic" : "This may take a few moments"}
+            </p>
           </div>
           {/* Loading Dots */}
           <div className="flex items-center justify-center space-x-2">
@@ -576,9 +689,37 @@ export default function TopicDetailsPage() {
                 <h1 className="text-3xl font-bold text-white">
                   {content.topic}
                 </h1>
-                <div className="flex items-center text-green-400">
-                  <CheckCircle className="w-6 h-6 mr-2" />
-                  <span className="font-medium">Content Ready</span>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center text-green-400">
+                    <CheckCircle className="w-6 h-6 mr-2" />
+                    <span className="font-medium">
+                      {loadedFromCache ? "Content Ready (Cached)" : "Content Ready"}
+                    </span>
+                    <span className="text-xs text-gray-500 ml-2">
+                      ({contentCache.size} cached)
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleRegenerate}
+                    disabled={isRegenerating}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+                      isRegenerating
+                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                        : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:scale-105 shadow-lg hover:shadow-xl'
+                    }`}
+                  >
+                    {isRegenerating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Regenerating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Regenerate
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             </motion.div>
@@ -720,9 +861,9 @@ export default function TopicDetailsPage() {
                           )}
                           
                           {example.subexample && (
-                            <pre className="bg-gray-900/50 text-white p-4 rounded-xl overflow-x-auto text-sm mb-4 border border-gray-700">
-                              <code>{example.subexample}</code>
-                            </pre>
+                            <div className="mb-4">
+                              <CodeBlock code={example.subexample} language="java" />
+                            </div>
                           )}
                           {example.exmexplain && example.exmexplain.length > 0 && (
                             <ul className="mt-4 space-y-2">
@@ -755,7 +896,9 @@ export default function TopicDetailsPage() {
                   Implementation
                 </h2>
                 <h3 className="text-lg font-semibold text-gray-300 mb-4">{content.code.topicofcode}</h3>
-                <CodeBlock code={content.code.tcode} language="javascript" />
+                <div className="mb-6">
+                  <CodeBlock code={content.code.tcode} language="java" />
+                </div>
                 {content.define && content.define.length > 0 && (
                   <div className="space-y-4">
                     <button
@@ -782,8 +925,10 @@ export default function TopicDetailsPage() {
                           <ul className="space-y-4">
                             {content.define.map((def, index) => (
                               <li key={index} className="bg-gray-900/30 rounded-lg p-4 border border-gray-700">
-                                <CodeBlock code={def.code} language="javascript" />
-                                <p className="mt-2 text-gray-300">{def.explain}</p>
+                                <div className="mb-4">
+                                  <CodeBlock code={def.code} language="java" />
+                                </div>
+                                <p className="text-gray-300">{def.explain}</p>
                               </li>
                             ))}
                           </ul>
@@ -956,7 +1101,9 @@ export default function TopicDetailsPage() {
                             >
                               <div className="bg-gray-800/50 p-4 rounded-lg">
                                 <h4 className="text-sm font-medium text-blue-400 mb-2">Solution:</h4>
-                                <CodeBlock code={exercise.solution} language="javascript" />
+                                <div className="mb-4">
+                                  <CodeBlock code={exercise.solution} language="java" />
+                                </div>
                               </div>
                               <div className="bg-gray-800/50 p-4 rounded-lg">
                                 <h4 className="text-sm font-medium text-blue-400 mb-2">Explanation:</h4>
@@ -967,6 +1114,123 @@ export default function TopicDetailsPage() {
                         </AnimatePresence>
                       </div>
                     </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* LeetCode Problems - Only show if available */}
+            {content.leetcodeProblem && content.leetcodeProblem.isProgrammingTopic && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.0 }}
+                className="bg-gradient-to-br from-gray-800/80 via-gray-800/60 to-gray-900/80 backdrop-blur-sm rounded-2xl p-6 border border-gray-600/50 shadow-xl"
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg">
+                      <Trophy className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-white">LeetCode Practice</h2>
+                      <p className="text-gray-400 text-sm">Hand-picked problems for this topic</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span>Easy</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                      <span>Medium</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                      <span>Hard</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  {/* Include selected problem in the list */}
+                  {content.leetcodeProblem.selectedProblem && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 }}
+                      whileHover={{ scale: 1.02, bg: 'rgba(255, 193, 7, 0.15)' }}
+                      className="group relative overflow-hidden bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-xl border-2 border-yellow-500/30 hover:border-yellow-500/60 transition-all duration-300 shadow-lg"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="relative flex items-center justify-between p-4">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-yellow-400 font-mono font-bold text-lg">#{content.leetcodeProblem.selectedProblem.problemNumber}</span>
+                            <div className="w-1 h-1 bg-yellow-400 rounded-full"></div>
+                          </div>
+                          <span className="text-white font-semibold text-lg">{content.leetcodeProblem.selectedProblem.title}</span>
+                          <span className={`px-3 py-1 rounded-full text-sm font-bold shadow-lg ${
+                            content.leetcodeProblem.selectedProblem.difficulty === 'Easy' ? 'bg-green-500 text-white' :
+                            content.leetcodeProblem.selectedProblem.difficulty === 'Medium' ? 'bg-yellow-500 text-black' :
+                            'bg-red-500 text-white'
+                          }`}>
+                            {content.leetcodeProblem.selectedProblem.difficulty}
+                          </span>
+                        </div>
+                        
+                        <a 
+                          href={content.leetcodeProblem.selectedProblem.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold px-4 py-2 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          Solve Now
+                        </a>
+                      </div>
+                    </motion.div>
+                  )}
+                  
+                  {/* Alternative Problems */}
+                  {content.leetcodeProblem.alternativeProblems && content.leetcodeProblem.alternativeProblems.map((problem, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 * (index + 2) }}
+                      whileHover={{ scale: 1.01, bg: 'rgba(99, 102, 241, 0.15)' }}
+                      className="group relative overflow-hidden bg-gradient-to-r from-gray-800/50 to-gray-700/50 rounded-xl border border-gray-600/50 hover:border-indigo-500/60 transition-all duration-300 shadow-md hover:shadow-lg"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="relative flex items-center justify-between p-4">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-300 font-mono font-medium">#{problem.problemNumber}</span>
+                            <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                          </div>
+                          <span className="text-white font-medium">{problem.title}</span>
+                          <span className={`px-3 py-1 rounded-full text-sm font-bold shadow-md ${
+                            problem.difficulty === 'Easy' ? 'bg-green-500/80 text-white' :
+                            problem.difficulty === 'Medium' ? 'bg-yellow-500/80 text-black' :
+                            'bg-red-500/80 text-white'
+                          }`}>
+                            {problem.difficulty}
+                          </span>
+                        </div>
+                        
+                        <a 
+                          href={problem.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-3 py-2 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          Open
+                        </a>
+                      </div>
+                    </motion.div>
                   ))}
                 </div>
               </motion.div>
