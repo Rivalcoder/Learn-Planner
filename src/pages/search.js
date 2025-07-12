@@ -82,7 +82,7 @@ export default function Search() {
   };
 
   return (
-    <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black min-h-screen p-6 text-white">
+    <div className="bg-gradient-to-br py-10 from-gray-900 via-gray-800 to-black text-white page-scroll">
       <Head>
         <title>AI Search</title>
       </Head>

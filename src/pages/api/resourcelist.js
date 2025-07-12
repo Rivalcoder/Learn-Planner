@@ -83,7 +83,7 @@ const topicSchema = z.object({
       url: z.string(),
       description: z.string(),
       tags: z.array(z.string())
-    })).length(4, "Must provide exactly 4 alternative problems").describe("Alternative LeetCode problems related to this topic with mixed difficulty levels")
+    })).min(0, "Must provide at least 0 alternative problems").max(4, "Cannot exceed 4 alternative problems").describe("Alternative LeetCode problems related to this topic with mixed difficulty levels")
   }).optional().describe("LeetCode problems related to this programming topic"),
   webSearchTagline: z.string().describe("A concise tagline for web search related to this topic"),
   youtubeSearchTagline: z.string().describe("A concise tagline for YouTube video search related to this topic")
@@ -121,7 +121,7 @@ const fallbackSchema = z.object({
       url: z.string(),
       description: z.string(),
       tags: z.array(z.string())
-    })).default([]).describe("Alternative LeetCode problems related to this topic")
+    })).min(0, "Must provide at least 0 alternative problems").max(4, "Cannot exceed 4 alternative problems").describe("Alternative LeetCode problems related to this topic")
   }).optional().describe("LeetCode problems related to this programming topic"),
   webSearchTagline: z.string(),
   youtubeSearchTagline: z.string(),
@@ -376,21 +376,20 @@ async function fetchLeetCodeProblems(topic) {
           url: z.string(),
           description: z.string(),
           tags: z.array(z.string())
-        })).length(4, "Must provide exactly 4 alternative problems").describe("Alternative LeetCode problems related to this topic with mixed difficulty levels")
+        })).min(0, "Must provide at least 0 alternative problems").max(4, "Cannot exceed 4 alternative problems").describe("Alternative LeetCode problems related to this topic with mixed difficulty levels")
       }),
       prompt: leetcodePrompt,
       apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
     });
 
-    // Validate that we have the expected number of problems
+    // Validate and enhance the result if needed
     const result = leetcodeResult.object;
     console.log('LeetCode generation result:', result);
     
-    if (result.isProgrammingTopic && (!result.selectedProblem || result.alternativeProblems.length !== 4)) {
-      console.warn('LeetCode generation returned insufficient problems, adding fallback problems');
-      
+    if (result.isProgrammingTopic) {
       // Add fallback problems if AI didn't generate enough
       if (!result.selectedProblem) {
+        console.warn('No selected problem generated, adding fallback');
         result.selectedProblem = {
           title: "Two Sum",
           difficulty: "Medium",
@@ -402,49 +401,46 @@ async function fetchLeetCodeProblems(topic) {
         };
       }
       
-      // Ensure we have exactly 4 alternative problems with mixed difficulty
-      const fallbackProblems = [
-        {
-          title: "Valid Parentheses",
-          difficulty: "Easy",
-          problemNumber: 20,
-          url: "https://leetcode.com/problems/valid-parentheses/",
-          description: "Check if parentheses are valid using stack",
-          tags: ["Stack", "String"]
-        },
-        {
-          title: "Best Time to Buy and Sell Stock",
-          difficulty: "Easy",
-          problemNumber: 121,
-          url: "https://leetcode.com/problems/best-time-to-buy-and-sell-stock/",
-          description: "Find maximum profit from buying and selling stock",
-          tags: ["Array", "Dynamic Programming"]
-        },
-        {
-          title: "Climbing Stairs",
-          difficulty: "Easy",
-          problemNumber: 70,
-          url: "https://leetcode.com/problems/climbing-stairs/",
-          description: "Find ways to climb n stairs using dynamic programming",
-          tags: ["Dynamic Programming", "Math"]
-        },
-        {
-          title: "Maximum Subarray",
-          difficulty: "Medium",
-          problemNumber: 53,
-          url: "https://leetcode.com/problems/maximum-subarray/",
-          description: "Find contiguous subarray with largest sum",
-          tags: ["Array", "Divide and Conquer"]
-        }
-      ];
-      
-      // Replace or extend alternative problems to have exactly 4
-      if (result.alternativeProblems.length < 4) {
-        result.alternativeProblems = [
-          ...result.alternativeProblems,
-          ...fallbackProblems.slice(result.alternativeProblems.length)
+      // Ensure we have some alternative problems (up to 4)
+      if (!result.alternativeProblems || result.alternativeProblems.length === 0) {
+        console.warn('No alternative problems generated, adding fallback problems');
+        const fallbackProblems = [
+          {
+            title: "Valid Parentheses",
+            difficulty: "Easy",
+            problemNumber: 20,
+            url: "https://leetcode.com/problems/valid-parentheses/",
+            description: "Check if parentheses are valid using stack",
+            tags: ["Stack", "String"]
+          },
+          {
+            title: "Best Time to Buy and Sell Stock",
+            difficulty: "Easy",
+            problemNumber: 121,
+            url: "https://leetcode.com/problems/best-time-to-buy-and-sell-stock/",
+            description: "Find maximum profit from buying and selling stock",
+            tags: ["Array", "Dynamic Programming"]
+          },
+          {
+            title: "Climbing Stairs",
+            difficulty: "Easy",
+            problemNumber: 70,
+            url: "https://leetcode.com/problems/climbing-stairs/",
+            description: "Find ways to climb n stairs using dynamic programming",
+            tags: ["Dynamic Programming", "Math"]
+          },
+          {
+            title: "Maximum Subarray",
+            difficulty: "Medium",
+            problemNumber: 53,
+            url: "https://leetcode.com/problems/maximum-subarray/",
+            description: "Find contiguous subarray with largest sum",
+            tags: ["Array", "Divide and Conquer"]
+          }
         ];
+        result.alternativeProblems = fallbackProblems;
       } else if (result.alternativeProblems.length > 4) {
+        console.warn('Too many alternative problems, truncating to 4');
         result.alternativeProblems = result.alternativeProblems.slice(0, 4);
       }
     }
@@ -545,6 +541,12 @@ async function getFallbackResponse(topic) {
     };
   } catch (error) {
     console.error('Fallback model error:', error);
+    
+    // Log detailed error information for debugging
+    if (error.cause && error.cause.issues) {
+      console.error('Fallback schema validation errors:', JSON.stringify(error.cause.issues, null, 2));
+    }
+    
     // Return a basic response if the fallback model fails
     return {
       topic: topic,
@@ -610,8 +612,8 @@ export default async function handler(req, res) {
        - Include step navigation and progress indicators
     
     5. Points: 3-5 key technical points or characteristics (min 50 characters each)
-    6. Code (if applicable): Simple, working implementation with clear comments
-    7. Code Explanation: Step-by-step explanation of the code
+    6. Code (if Programming Topic Then Small Implementation of That Topic With Code Example): Simple, working implementation (give Code example In The User Asked Language if Not Give Using Python) Give Code Accordingly So I can Render With Highlighter in the Frontend
+    7. Code Explanation: Step-by-step explanation of the Complete code of All The Above Code Lines(# Give All Lines explanation of teh Above coe Given even explain The Input Vairable Declare Also)
     8. Importance: 3-5 points about why this topic matters
     9. Prerequisites: 1-5 fundamental concepts needed before learning this topic
     10. Learning Objectives: 2-5 clear, measurable outcomes
@@ -635,13 +637,22 @@ export default async function handler(req, res) {
 
     // Fetch URLs using the generated taglines and LeetCode problems with timeouts
     const [youtubeResults, webResults, leetcodeProblems] = await Promise.allSettled([
-      fetchYouTubeVideos(result.object.youtubeSearchTagline).catch(() => []),
-      fetchWebResults(result.object.webSearchTagline).catch(() => []),
-      fetchLeetCodeProblems(topic).catch(() => ({
-        isProgrammingTopic: false,
-        selectedProblem: null,
-        alternativeProblems: []
-      }))
+      fetchYouTubeVideos(result.object.youtubeSearchTagline).catch((error) => {
+        console.error('YouTube fetch error:', error);
+        return [];
+      }),
+      fetchWebResults(result.object.webSearchTagline).catch((error) => {
+        console.error('Web search fetch error:', error);
+        return [];
+      }),
+      fetchLeetCodeProblems(topic).catch((error) => {
+        console.error('LeetCode problems fetch error:', error);
+        return {
+          isProgrammingTopic: false,
+          selectedProblem: null,
+          alternativeProblems: []
+        };
+      })
     ]);
 
     const response = {
@@ -654,11 +665,16 @@ export default async function handler(req, res) {
         alternativeProblems: []
       }
     };
-    console.log(response);
+    // console.log(response);
     console.log('Main generation successful');
     res.status(200).json(response);
   } catch (error) {
     console.error('Main generation failed after retries:', error);
+    
+    // Log detailed error information for debugging
+    if (error.cause && error.cause.issues) {
+      console.error('Schema validation errors:', JSON.stringify(error.cause.issues, null, 2));
+    }
     
     try {
       // Fallback attempt with retry mechanism

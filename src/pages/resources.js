@@ -668,7 +668,7 @@ export default function TopicDetailsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black p-6">
+    <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-black p-6">
       <Head>
         <title>{content?.topic ? `${content.topic} - Resource Details` : `${topic || 'Topic'} - Ai-Learn`}</title>
       </Head>
