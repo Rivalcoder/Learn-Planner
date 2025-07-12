@@ -55,30 +55,6 @@ Welcome to **Learn Planner** - Your Ultimate Learning Companion! 🎯 This appli
 | `/tasks` | POST | Create a new task |
 | `/progress` | GET | Get learning progress |
 
-## 📊 Project Statistics
-
-| Metric | Value |
-|--------|-------|
-| Active Users | 1000+ |
-| Courses Managed | 5000+ |
-| Tasks Completed | 25000+ |
-| User Satisfaction | 4.8/5 |
-
-## 🌟 User Reviews
-
-> "A game-changer for managing my online courses! The interface is intuitive and the progress tracking is phenomenal. Highly recommended!" - User A ⭐⭐⭐⭐⭐
-
-> "This app has completely transformed how I organize my learning. The visual progress tracking keeps me motivated!" - User B ⭐⭐⭐⭐⭐
-
-> "As a student, this tool has been invaluable. It keeps me accountable and organized throughout my learning journey." - User C ⭐⭐⭐⭐⭐
-
-
-## 📞 Support
-
-Need help? Check out our [Documentation](docs/) or open an issue in our [Issue Tracker](https://github.com/Rivalcoder/Learn-Planner/issues).
-
----
-
 <div align="center">
   <h3>🌟 Happy Learning! Keep Growing! 🚀</h3>
   <p>Made by ❤️ Rivalcoder</p>
