@@ -133,6 +133,252 @@ const fallbackSchema = z.object({
   })).describe("An array of step-by-step visualization components for the topic")
 });
 
+// HTML validation and sanitization function
+function validateAndFixHtml(html) {
+  // Debug logging
+  console.log('Validating HTML:', html ? html.substring(0, 200) + '...' : 'null');
+  
+  if (!html || typeof html !== 'string' || html.trim().length === 0) {
+    console.log('HTML is empty or null, using fallback template');
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Visualization</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .visualization-container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        .title {
+            color: #4a5568;
+            margin-bottom: 20px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .content {
+            color: #718096;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        
+        .interactive-element {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+        
+        .interactive-element:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 3px;
+            animation: progress 2s ease-in-out infinite;
+        }
+        
+        @keyframes progress {
+            0% { width: 0%; }
+            50% { width: 70%; }
+            100% { width: 100%; }
+        }
+        
+        @media (max-width: 768px) {
+            .visualization-container {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .title {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="visualization-container">
+        <h1 class="title">Interactive Visualization</h1>
+        <p class="content">This is an interactive visualization component. Click the button below to see it in action.</p>
+        
+        <div class="progress-bar">
+            <div class="progress-fill"></div>
+        </div>
+        
+        <button class="interactive-element" onclick="toggleAnimation()">
+            Start Animation
+        </button>
+        
+        <div id="animation-area" style="margin-top: 20px; padding: 20px; background: rgba(102, 126, 234, 0.1); border-radius: 8px;">
+            <p>Animation area will appear here</p>
+        </div>
+    </div>
+    
+    <script>
+        let animationActive = false;
+        
+        function toggleAnimation() {
+            const area = document.getElementById('animation-area');
+            const button = event.target;
+            
+            if (!animationActive) {
+                area.innerHTML = '<div style="width: 50px; height: 50px; background: linear-gradient(45deg, #667eea, #764ba2); border-radius: 50%; margin: 0 auto; animation: bounce 1s infinite;"></div>';
+                button.textContent = 'Stop Animation';
+                animationActive = true;
+            } else {
+                area.innerHTML = '<p>Animation stopped</p>';
+                button.textContent = 'Start Animation';
+                animationActive = false;
+            }
+        }
+        
+        // Add CSS animation
+        const style = document.createElement('style');
+        style.textContent = \`
+            @keyframes bounce {
+                0%, 20%, 50%, 80%, 100% {
+                    transform: translateY(0);
+                }
+                40% {
+                    transform: translateY(-20px);
+                }
+                60% {
+                    transform: translateY(-10px);
+                }
+            }
+        \`;
+        document.head.appendChild(style);
+        
+        // Error handling
+        window.addEventListener('error', function(e) {
+            console.error('Visualization error:', e.error);
+        });
+    </script>
+</body>
+</html>`;
+  }
+
+  // More lenient validation - only check for basic HTML structure
+  const hasHtmlTag = html.includes('<html') || html.includes('<body') || html.includes('<div');
+  const hasContent = html.includes('<body') || html.includes('<div') || html.includes('<h1') || html.includes('<p');
+  
+  // If HTML has no content at all, return fallback
+  if (!hasContent) {
+    console.log('HTML has no content, using fallback template');
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualization</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 500px;
+        }
+        h1 {
+            color: #4a5568;
+            margin-bottom: 20px;
+        }
+        p {
+            color: #718096;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Visualization Loading</h1>
+        <p>This visualization is being prepared. Please wait...</p>
+    </div>
+</body>
+</html>`;
+  }
+
+  // If HTML doesn't have DOCTYPE, add it
+  if (!html.includes('<!DOCTYPE html>') && !html.includes('<!doctype html>')) {
+    html = '<!DOCTYPE html>\n' + html;
+  }
+
+  // If HTML doesn't have viewport meta tag, add it
+  if (!html.includes('viewport')) {
+    html = html.replace('<head>', '<head>\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">');
+    html = html.replace('<html>', '<html>\n<head>\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n</head>');
+  }
+
+  // If HTML doesn't have charset, add it
+  if (!html.includes('charset') && !html.includes('UTF-8')) {
+    html = html.replace('<head>', '<head>\n    <meta charset="UTF-8">');
+    html = html.replace('<html>', '<html>\n<head>\n    <meta charset="UTF-8">\n</head>');
+  }
+
+  // Ensure no black backgrounds that cause display issues
+  html = html.replace(/background:\s*black/gi, 'background: #f8f9fa');
+  html = html.replace(/background-color:\s*black/gi, 'background-color: #f8f9fa');
+  html = html.replace(/background:\s*#000/gi, 'background: #f8f9fa');
+  html = html.replace(/background-color:\s*#000/gi, 'background-color: #f8f9fa');
+
+  console.log('HTML validation completed, returning processed HTML');
+  return html;
+}
+
 // Retry function with exponential backoff and timeout
 async function retryWithBackoff(fn, maxRetries = 3, baseDelay = 1000, timeout = 30000) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -239,66 +485,74 @@ async function fetchLeetCodeProblems(topic) {
     const leetcodePrompt = `
     For the topic "${topic}", determine if it's programming-related and generate relevant LeetCode problems.
     
-
-    ###Give More Easy Problems than Medium/Hard Problems Because Beginners Need to Understand the Topic Step by Step So It is Important To Give More easy and 1 or 2 medium and hard problems
-    PROGRAMMING TOPICS INCLUDE (but not limited to):
-    - Data Structures: arrays, linked lists, trees, graphs, stacks, queues, hash tables, heaps
-    - Algorithms: sorting, searching, dynamic programming, recursion, backtracking, greedy
-    - Programming Concepts: OOP, functional programming, design patterns, SOLID principles
-    - System Design: architecture, scalability, databases, caching, load balancing
-    - Frameworks/Libraries: React, Node.js, Django, Spring, Express
-    - Database: SQL, NoSQL, ACID, CAP theorem, indexing, transactions
-    - Network Protocols: HTTP, TCP/IP, WebSocket, REST, GraphQL
-    - Security: authentication, authorization, encryption, OAuth, JWT
-    - DevOps: CI/CD, containerization, orchestration, monitoring
-    - Web Technologies: HTML, CSS, JavaScript, TypeScript
-    - Mobile Development: iOS, Android, React Native, Flutter
-    - Cloud Computing: AWS, Azure, GCP, microservices, serverless
-    - Programming Languages: Python, Java, C++, JavaScript, Go, Rust, Swift
-    - Computer Science: data structures, algorithms, complexity analysis, optimization
+    ## PROGRAMMING TOPICS INCLUDE (but not limited to):
+    - Data Structures: arrays, linked lists, trees, graphs, stacks, queues, hash tables, heaps, tries, segment trees
+    - Algorithms: sorting, searching, dynamic programming, recursion, backtracking, greedy, divide and conquer
+    - Programming Concepts: OOP, functional programming, design patterns, SOLID principles, clean code
+    - System Design: architecture, scalability, databases, caching, load balancing, microservices
+    - Frameworks/Libraries: React, Node.js, Django, Spring, Express, Angular, Vue
+    - Database: SQL, NoSQL, ACID, CAP theorem, indexing, transactions, normalization
+    - Network Protocols: HTTP, TCP/IP, WebSocket, REST, GraphQL, gRPC
+    - Security: authentication, authorization, encryption, OAuth, JWT, HTTPS, CORS
+    - DevOps: CI/CD, containerization, orchestration, monitoring, logging, deployment
+    - Web Technologies: HTML, CSS, JavaScript, TypeScript, Web APIs, DOM manipulation
+    - Mobile Development: iOS, Android, React Native, Flutter, mobile UI/UX
+    - Cloud Computing: AWS, Azure, GCP, microservices, serverless, containers
+    - Programming Languages: Python, Java, C++, JavaScript, Go, Rust, Swift, Kotlin
+    - Computer Science: data structures, algorithms, complexity analysis, optimization, theory
+    - Machine Learning: algorithms, data preprocessing, model evaluation, neural networks
+    - Blockchain: smart contracts, consensus algorithms, cryptography, distributed systems
     
-    NON-PROGRAMMING TOPICS (examples):
-    - History, literature, art, music, sports, cooking, travel, philosophy, biology, chemistry, physics (non-CS)
+    ## NON-PROGRAMMING TOPICS (examples):
+    - History, literature, art, music, sports, cooking, travel, philosophy, biology, chemistry, physics (non-CS), mathematics (non-CS), economics, psychology
     
+    ## ADVANCED REQUIREMENTS FOR PROGRAMMING TOPICS:
     If "${topic}" is programming-related, you MUST generate:
     1. One selected problem that best matches the topic (selectedProblem)
     2. EXACTLY 4 alternative problems for additional practice (alternativeProblems array)
     
-    DIFFICULTY DISTRIBUTION REQUIREMENTS:
-    - Provide a good mix of difficulty levels for progressive learning
-    - Include 2-3 Easy problems for beginners to start with
-    - Include 1-2 Medium problems for intermediate practice
-    - Include 1 Hard problem for advanced learners
-    - The selected problem should be Medium difficulty (best for learning the topic)
+    ## DIFFICULTY DISTRIBUTION REQUIREMENTS:
+    - Provide a progressive learning path with mixed difficulty levels
+    - Include 2-3 Easy problems for beginners to build foundational understanding
+    - Include 1-2 Medium problems for intermediate practice and concept application
+    - Include 1 Hard problem for advanced learners and optimization challenges
+    - The selected problem should be Medium difficulty (optimal for focused learning)
     
-    CRITICAL: You MUST generate MORE EASY problems than Medium/Hard problems.
+    ## CRITICAL: PRIORITIZE EASY PROBLEMS FOR BEGINNERS
     RECOMMENDED DISTRIBUTION:
-    - Selected Problem: 1 Medium (for focused learning)
+    - Selected Problem: 1 Medium (for focused learning of core concepts)
     - Alternative Problems: 2 Easy + 1 Medium + 1 Hard = 4 total
     - Total: 2 Easy + 2 Medium + 1 Hard = 5 problems
     
     EASY PROBLEMS ARE ESSENTIAL for beginners to understand the topic step by step.
     DO NOT generate mostly Medium/Hard problems - focus on Easy problems for learning.
     
-    IMPORTANT: You MUST provide both selectedProblem AND alternativeProblems array with 4 problems.
+    ## PROBLEM SELECTION CRITERIA:
+    - Choose problems that directly relate to the core concepts of "${topic}"
+    - Ensure problems cover fundamental principles and practical applications
+    - Select problems with clear learning objectives and educational value
+    - Include problems that demonstrate real-world applications
+    - Choose problems that build upon each other in complexity
     
-    For each problem, provide:
+    ## LEARNING PROGRESSION:
+    - Easy problems: Focus on basic concepts, fundamental understanding, and simple implementations
+    - Medium problems: Apply concepts in more complex scenarios, handle edge cases, optimize solutions
+    - Hard problems: Advanced applications, optimization challenges, complex algorithm implementations
+    
+    ## REQUIRED FIELDS FOR EACH PROBLEM:
     - title: Problem title
     - difficulty: Easy, Medium, or Hard
     - problemNumber: LeetCode problem number
     - url: LeetCode problem URL
-    - description: Brief description of the problem
-    - tags: Relevant tags for the problem
-    - whySelected: Why this problem was chosen for this topic (for selected problem only)
+    - description: Brief description of the problem and its requirements
+    - tags: Relevant tags for the problem (array of strings)
+    - whySelected: Detailed explanation of why this problem was chosen for this topic (for selected problem only)
     
-    LEARNING PROGRESSION:
-    - Easy problems: Focus on basic concepts and fundamental understanding
-    - Medium problems: Apply concepts in more complex scenarios
-    - Hard problems: Advanced applications and optimization challenges
+    ## IMPORTANT: You MUST provide both selectedProblem AND alternativeProblems array with 4 problems.
     
     If this is NOT a programming topic, return isProgrammingTopic: false.
     
-    Focus on problems that directly relate to the core concepts of "${topic}".
+    Focus on problems that directly relate to the core concepts of "${topic}" and provide a comprehensive learning experience.
     
     Example structure for programming topics:
     {
@@ -460,48 +714,101 @@ async function fetchLeetCodeProblems(topic) {
 async function getFallbackResponse(topic) {
   try {
     const fallbackPrompt = `
-      Provide comprehensive information about "${topic}" following this structured format:
-      
-      1. Topic Name: A clear, concise title for the topic
-      
-      2. Description: A detailed explanation (minimum 100 words) that covers:
-         - What the topic is and its purpose
-         - Why it's important to learn
-         - Basic concepts and principles
-         - Real-world applications and relevance
-      
-      3. Subtopic Generation (MANDATORY for topics with multiple components):
+      Create an advanced, comprehensive learning resource for "${topic}" following this detailed structure:
+
+      ## 1. TOPIC & DESCRIPTION
+      - Topic: Clear, concise title for the topic
+      - Description: Comprehensive explanation (minimum 150 words) covering:
+        * Core concepts and fundamental principles
+        * Real-world applications and industry relevance
+        * Why this topic is important in modern technology/industry
+        * Learning path context and prerequisites
+
+      ## 2. SUBTOPIC GENERATION (MANDATORY)
          Generate 2-4 subtopics for topics that can be broken down into distinct concepts.
-         Each subtopic should include:
-         - subtop: Clear subtopic name
-         - subexplain: Detailed explanation (minimum 50 words) covering purpose, relevance, and relationship to main topic
+      Each subtopic must include:
+      - subtop: Clear, specific subtopic name
+      - subexplain: Comprehensive explanation (minimum 80 words) covering:
+        * Detailed concept breakdown and principles
+        * Practical applications and real-world use cases
+        * Common challenges and their solutions
+        * Relationship to main topic and learning progression
          - subtopicVisualizationHtml: Array of 2-3 visualization steps for this subtopic
-           * Each step should have: step name, completeHtml (self-contained HTML with CSS/JS), explanation, and purpose
-           * Focus on visual representation specific to this subtopic
-           * Include interactive elements and animations
-           * Use modern UI design with colors, gradients, and smooth transitions
-      
-      4. Visualization Components:
+        * Each step must have: step name, completeHtml (self-contained HTML with CSS/JS), explanation, purpose
+        * CRITICAL: Each completeHtml must be a COMPLETE, VALID HTML document with:
+          - Proper DOCTYPE declaration
+          - Complete HTML structure (html, head, body tags)
+          - Embedded CSS in <style> tag with modern styling
+          - Embedded JavaScript in <script> tag with error handling
+          - No external dependencies or CDN links
+          - Responsive design with viewport meta tag
+          - Modern UI with gradients, animations, and interactive elements
+          - Color-coded visual metaphors and progress indicators
+          - Mobile-friendly design with touch interactions
+          - Proper error handling and loading states
+
+      ## 3. VISUALIZATION COMPONENTS (MANDATORY)
          Create an array of 3-5 step-by-step visualization components for the main topic.
-         Each component should include:
-         - step: Step name or description
-         - completeHtml: Complete, self-contained HTML file with embedded CSS and JS
-         - explanation: What this visualization step shows
-         - purpose: Why this step is important for understanding
-         
-         Visualization guidelines:
-         - Use modern, attractive styling with gradients and animations
-         - Include interactive elements like buttons, sliders, and real-time updates
-         - Make it responsive and mobile-friendly
-         - Focus on visual understanding rather than code display
-         - Use color coding and visual metaphors
-         - Include step navigation and progress indicators
-      
-      5. Search Optimization:
+      Each component must include:
+      - step: Clear step name or description
+      - completeHtml: COMPLETE, SELF-CONTAINED HTML file with embedded CSS and JS
+      - explanation: Detailed explanation of what this visualization demonstrates
+      - purpose: Why this step is crucial for understanding the concept
+
+      ## VISUALIZATION REQUIREMENTS (CRITICAL):
+      Each completeHtml MUST be a complete HTML document with this exact structure:
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Visualization Step</title>
+          <style>
+              /* Complete CSS with modern styling, gradients, animations */
+              /* Must include responsive design, color schemes, and visual effects */
+          </style>
+      </head>
+      <body>
+          <!-- Interactive content with buttons, sliders, animations -->
+          <script>
+              // Complete JavaScript with error handling, animations, interactivity
+              // Must include fallbacks and mobile compatibility
+          </script>
+      </body>
+      </html>
+
+      ## ABSOLUTE REQUIREMENTS FOR VISUALIZATIONS:
+      - Every visualization must have at least one visible interactive control (button, slider, or input) that the user can use to change the visualization.
+      - The visualization must visibly change or animate in response to user input (e.g., bars move, chart updates, memory usage animates).
+      - If a visualization is static, missing, or does not respond to user input, OUTPUT AN ERROR MESSAGE or RETRY until a dynamic, interactive visualization is produced.
+      - For sorting visualizations, always provide a "Start" or "Step" button that animates the sorting process step by step.
+      - For time/space complexity, always provide a slider or input for 'n' and update the chart or memory display live as the user changes 'n'.
+      - Do NOT generate static images, static bars, or single-color boxes.
+      - If you cannot generate a dynamic, interactive visualization, output: "ERROR: Visualization is not dynamic or interactive."
+
+      ## EXAMPLES:
+      - For Bubble Sort: Provide a "Start" button. When clicked, animate the sorting process step by step, updating the bars and highlighting swaps. The user must be able to see the sorting in action, not just the initial and final states.
+      - For time complexity: Add a slider for ‘n’. As the user moves the slider, update the chart to show O(n^2) growth live.
+      - For space complexity: Show a bar or box that animates or updates as the user interacts (e.g., click to allocate/release memory).
+
+      ## VISUALIZATION GUIDELINES:
+      - Use modern, attractive styling with CSS gradients and smooth animations
+      - Make it fully responsive and mobile-friendly
+      - Focus on visual understanding with color coding and visual metaphors
+      - Include step navigation, progress indicators, and smooth transitions
+      - Use modern color schemes (avoid black or very dark backgrounds that cause display issues)
+      - Implement proper error handling and loading states
+      - Ensure all animations are smooth and performant
+      - Add hover effects and micro-interactions
+      - Use semantic HTML with proper accessibility
+      - **Visualizations must be topic-specific, engaging, and educational, with clear labels, legends, and user guidance. No placeholders.**
+      - **If the visualization is not dynamic or interactive, output an error message or retry.**
+
+      ## 4. SEARCH OPTIMIZATION
          - webSearchTagline: Optimized search term for finding comprehensive articles and documentation
          - youtubeSearchTagline: Optimized search term for finding video tutorials and explanations
       
-      6. LeetCode Problem Selection (OPTIONAL - Only for programming topics):
+      ## 5. LETCODE PROBLEM SELECTION (OPTIONAL)
          - Determine if this topic is related to programming and has applicable LeetCode problems
          - For programming topics (data structures, algorithms, programming concepts, system design, etc.):
            * Set isProgrammingTopic to true
@@ -514,9 +821,22 @@ async function getFallbackResponse(topic) {
          - The LeetCode problem selection will be handled automatically by the system
          - No manual selection is needed - the AI will choose the best problem based on topic relevance
       
+      ## CRITICAL REQUIREMENTS:
+      - All visualizations must be complete, self-contained HTML documents
+      - No external dependencies or CDN links
+      - Must work offline and in sandboxed environments
+      - Include proper error handling and fallbacks
+      - Use modern CSS with gradients, animations, and responsive design
+      - Avoid black backgrounds and ensure proper contrast
+      - Include loading states and smooth transitions
+      - Make all interactive elements accessible
+      - Ensure mobile compatibility and touch-friendly interfaces
+
       Ensure the response is comprehensive, well-structured, and provides valuable learning content.
       Focus on practical understanding and visual learning rather than theoretical explanations.
       Make visualizations engaging and interactive to enhance the learning experience.
+      Prioritize visual clarity and user experience over complex animations.
+      Ensure all HTML is valid and self-contained.
     `;
 
     const result = await generateObject({
@@ -533,12 +853,67 @@ async function getFallbackResponse(topic) {
       fetchLeetCodeProblems(topic)
     ]);
 
-    return {
+    // Process and validate HTML in the fallback response
+    const processedFallbackResponse = {
       ...result.object,
       youtubeResults,
       webResults,
       leetcodeProblem: leetcodeProblems
     };
+
+    // Validate and fix all HTML in visualizations
+    if (processedFallbackResponse.visualizationHtml && Array.isArray(processedFallbackResponse.visualizationHtml)) {
+      processedFallbackResponse.visualizationHtml = processedFallbackResponse.visualizationHtml.map((vis, index) => {
+        console.log(`Processing fallback visualization ${index + 1}:`, vis.step);
+        const validatedHtml = validateAndFixHtml(vis.completeHtml);
+        
+        // Check if HTML contains interactive elements
+        const hasInteractiveElements = validatedHtml.includes('onclick') || 
+                                    validatedHtml.includes('addEventListener') || 
+                                    validatedHtml.includes('function') ||
+                                    validatedHtml.includes('button') ||
+                                    validatedHtml.includes('input');
+        
+        console.log(`Fallback visualization ${index + 1} has interactive elements:`, hasInteractiveElements);
+        
+        return {
+          ...vis,
+          completeHtml: validatedHtml
+        };
+      });
+    }
+
+    // Validate and fix HTML in subtopics
+    if (processedFallbackResponse.subtopics && Array.isArray(processedFallbackResponse.subtopics)) {
+      processedFallbackResponse.subtopics = processedFallbackResponse.subtopics.map((subtopic, subIndex) => {
+        if (subtopic.subtopicVisualizationHtml && Array.isArray(subtopic.subtopicVisualizationHtml)) {
+          return {
+            ...subtopic,
+            subtopicVisualizationHtml: subtopic.subtopicVisualizationHtml.map((vis, visIndex) => {
+              console.log(`Processing fallback subtopic ${subIndex + 1} visualization ${visIndex + 1}:`, vis.step);
+              const validatedHtml = validateAndFixHtml(vis.completeHtml);
+              
+              // Check if HTML contains interactive elements
+              const hasInteractiveElements = validatedHtml.includes('onclick') || 
+                                          validatedHtml.includes('addEventListener') || 
+                                          validatedHtml.includes('function') ||
+                                          validatedHtml.includes('button') ||
+                                          validatedHtml.includes('input');
+              
+              console.log(`Fallback subtopic ${subIndex + 1} visualization ${visIndex + 1} has interactive elements:`, hasInteractiveElements);
+              
+              return {
+                ...vis,
+                completeHtml: validatedHtml
+              };
+            })
+          };
+        }
+        return subtopic;
+      });
+    }
+
+    return processedFallbackResponse;
   } catch (error) {
     console.error('Fallback model error:', error);
     
@@ -581,50 +956,167 @@ export default async function handler(req, res) {
     // Main attempt with retry mechanism
     const result = await retryWithBackoff(async () => {
       const promptWithTopic = `
-    Provide comprehensive information on the topic: "${topic}" following this structured format:
-    
-    1. Topic: Clear, concise title (max 50 characters)
-    2. Description: Detailed explanation (min 50 words) that beginners can understand
-    3. Subtopic Generation (MANDATORY for topics with multiple components):
-       Generate 2-4 subtopics for complex topics, 1-2 for simpler topics. Each subtopic includes:
-       - subtop: Clear subtopic name
-       - subexplain: Detailed explanation (min 50 words)
-       - subexample: Working code example for programming topics, clear example for others
-       - exmexplain: Step-by-step explanation of the example
+    Create a comprehensive, advanced learning resource for the topic: "${topic}" following this detailed structure:
+
+    ## 1. TOPIC & DESCRIPTION
+    - Topic: Clear, concise title (max 50 characters)
+    - Description: Detailed explanation (min 100 words) covering:
+      * Core concepts and fundamental principles
+      * Real-world applications and industry relevance
+      * Why this topic is important in modern technology/industry
+      * Prerequisites and learning path context
+
+    ## 2. SUBTOPIC GENERATION (MANDATORY)
+    Generate 2-4 subtopics for complex topics, 1-2 for simpler topics. Each subtopic must include:
+    - subtop: Clear, specific subtopic name
+    - subexplain: Comprehensive explanation (min 80 words) covering:
+      * Detailed concept breakdown
+      * Practical applications and use cases
+      * Common challenges and solutions
+      * Relationship to main topic
+    - subexample: Working code example for programming topics, detailed example for others
+    - exmexplain: **Provide a line-by-line explanation for every line of code in subexample. Output as an array or object mapping each code line to its explanation. Explanations must cover variable declarations, input/output, and logic, and be detailed and beginner-friendly.**
        - subtopicVisualizationHtml: 2-3 visualization steps specific to this subtopic
-         * Each step: step name, completeHtml (self-contained HTML with CSS/JS), explanation, purpose
-         * Focus on visual representation with interactive elements and animations
-         * Use modern UI design with colors, gradients, and smooth transitions
-    
-    4. Visualization Components (MANDATORY):
-       Create 3-5 step-by-step visualization components for the main topic. Each includes:
-       - step: Step name or description
-       - completeHtml: Complete, self-contained HTML file with embedded CSS and JS
-       - explanation: What this visualization step shows
-       - purpose: Why this step is important for understanding
-       
-       Visualization guidelines:
-       - Use modern, attractive styling with gradients and animations
-       - Include interactive elements like buttons, sliders, and real-time updates
-       - Make it responsive and mobile-friendly
-       - Focus on visual understanding rather than code display
-       - Use color coding and visual metaphors
-       - Include step navigation and progress indicators
-    
-    5. Points: 3-5 key technical points or characteristics (min 50 characters each)
-    6. Code (if Programming Topic Then Small Implementation of That Topic With Code Example): Simple, working implementation (give Code example In The User Asked Language if Not Give Using Python) Give Code Accordingly So I can Render With Highlighter in the Frontend
-    7. Code Explanation: Step-by-step explanation of the Complete code of All The Above Code Lines(# Give All Lines explanation of teh Above coe Given even explain The Input Vairable Declare Also)
-    8. Importance: 3-5 points about why this topic matters
-    9. Prerequisites: 1-5 fundamental concepts needed before learning this topic
-    10. Learning Objectives: 2-5 clear, measurable outcomes
-    11. Common Misconceptions: 2-4 frequent misunderstandings with explanations and corrections
-    12. Practice Exercises: 2-4 problems of varying difficulty (beginner, intermediate, advanced) with solutions
-    13. Search Taglines:
+      * Each step must have: step name, completeHtml (self-contained HTML with CSS/JS), explanation, purpose
+      * CRITICAL: Each completeHtml must be a COMPLETE, VALID HTML document with:
+        - Proper DOCTYPE declaration
+        - Complete HTML structure (html, head, body tags)
+        - Embedded CSS in <style> tag
+        - Embedded JavaScript in <script> tag
+        - No external dependencies
+        - Responsive design with viewport meta tag
+        - Error handling and fallbacks
+        - Modern UI with gradients, animations, and interactive elements
+        - Color-coded visual metaphors
+        - Progress indicators and navigation
+        - Mobile-friendly design
+        - **STRICTLY PROHIBIT black or very dark backgrounds. Use only light, high-contrast, accessible backgrounds that work in both light and dark UI themes. Use modern, accessible color palettes. Avoid backgrounds that could cause the visualization to disappear or blend in.**
+        - **Visualizations must be topic-specific, engaging, and educational, with clear labels, legends, and user guidance. No placeholders.**
+
+    ## 3. VISUALIZATION COMPONENTS (MANDATORY)
+    Create 3-5 step-by-step visualization components for the main topic. Each must include:
+    - step: Clear step name or description
+    - completeHtml: COMPLETE, SELF-CONTAINED HTML file with embedded CSS and JS
+    - explanation: Detailed explanation of what this visualization demonstrates
+    - purpose: Why this step is crucial for understanding the concept
+
+    ## VISUALIZATION REQUIREMENTS (CRITICAL):
+    Each completeHtml MUST be a complete HTML document with this exact structure:
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Visualization Step</title>
+        <style>
+            /* Complete CSS with modern styling, gradients, animations */
+            /* Must include responsive design, color schemes, and visual effects */
+            /* STRICTLY PROHIBIT black or very dark backgrounds. Use only light, high-contrast, accessible backgrounds. */
+        </style>
+    </head>
+    <body>
+        <!-- Interactive content with buttons, sliders, animations -->
+        <script>
+            // Complete JavaScript with error handling, animations, interactivity
+            // Must include fallbacks and mobile compatibility
+            // EXAMPLE OF REQUIRED INTERACTIVITY:
+            // - Event listeners (onclick, addEventListener)
+            // - DOM manipulation (innerHTML, style changes, classList)
+            // - State management (variables, counters, flags)
+            // - Real-time updates (setInterval, setTimeout)
+            // - User input handling (input events, form submissions)
+            // - Animation controls (start/stop, pause/resume)
+        </script>
+    </body>
+    </html>
+
+    ## ABSOLUTE REQUIREMENTS FOR VISUALIZATIONS:
+    - Every visualization must have at least one visible interactive control (button, slider, or input) that the user can use to change the visualization.
+    - The visualization must visibly change or animate in response to user input (e.g., bars move, chart updates, memory usage animates).
+    - If a visualization is static, missing, or does not respond to user input, OUTPUT AN ERROR MESSAGE or RETRY until a dynamic, interactive visualization is produced.
+    - For sorting visualizations, always provide a "Start" or "Step" button that animates the sorting process step by step.
+    - For time/space complexity, always provide a slider or input for 'n' and update the chart or memory display live as the user changes 'n'.
+    - Do NOT generate static images, static bars, or single-color boxes.
+    - If you cannot generate a dynamic, interactive visualization, output: "ERROR: Visualization is not dynamic or interactive."
+
+    ## EXAMPLES:
+    - For Bubble Sort: Provide a "Start" button. When clicked, animate the sorting process step by step, updating the bars and highlighting swaps. The user must be able to see the sorting in action, not just the initial and final states.
+    - For time complexity: Add a slider for ‘n’. As the user moves the slider, update the chart to show O(n^2) growth live.
+    - For space complexity: Show a bar or box that animates or updates as the user interacts (e.g., click to allocate/release memory).
+
+    ## VISUALIZATION GUIDELINES:
+    - **CRITICAL: Every visualization MUST have REAL, WORKING JavaScript functionality**
+    - **MANDATORY: Include at least one interactive element that actually works:**
+      * Clickable buttons that trigger animations or state changes
+      * Sliders that update values in real-time
+      * Drag-and-drop elements that respond to user input
+      * Animated elements that start/stop on user interaction
+      * Form inputs that update the visualization dynamically
+    - **The visualization must DEMONSTRATE THE CONCEPT IN ACTION** - not just show static diagrams
+    - **Provide clear user instructions** (e.g., "Click 'Start' to see the algorithm step by step")
+    - **All interactions must provide immediate, visible feedback** (animations, color changes, text updates, progress bars)
+    - **DO NOT create static visualizations** - every element must be interactive and responsive
+    - **Include working event listeners** (onclick, addEventListener, input events)
+    - **Use real JavaScript functions** that manipulate the DOM and update the visualization
+    - **Add state management** (variables that track current state, step counters, etc.)
+    - **Include smooth animations** that respond to user input (CSS transitions, JavaScript animations)
+    - **Make it educational** - each interaction should teach something about the concept
+    - Use modern, attractive styling with CSS gradients and smooth animations
+    - Make it fully responsive and mobile-friendly
+    - Focus on visual understanding with color coding and visual metaphors
+    - Include step navigation, progress indicators, and smooth transitions
+    - Use modern color schemes (avoid black or very dark backgrounds that cause display issues)
+    - Implement proper error handling and loading states
+    - Ensure all animations are smooth and performant
+    - Add hover effects and micro-interactions
+    - Use semantic HTML with proper accessibility
+    - **Visualizations must be topic-specific, engaging, and educational, with clear labels, legends, and user guidance. No placeholders.**
+
+    ## 4. TECHNICAL CONTENT
+    - Points: 3-5 key technical points or characteristics (min 50 characters each)
+    - Code: For programming topics, provide a complete, working implementation
+      * Use the most appropriate programming language for the topic
+      * Include proper syntax highlighting comments
+      * Add comprehensive error handling
+      * Include input validation and edge cases
+    - Code Explanation: **Provide a line-by-line explanation for every line of code. Output as an array or object mapping each code line to its explanation. Explanations must cover variable declarations, input/output, and logic, and be detailed and beginner-friendly.**
+
+    ## 5. LEARNING FRAMEWORK
+    - Importance: 3-5 points about why this topic matters in industry
+    - Prerequisites: 1-5 fundamental concepts needed before learning this topic
+    - Learning Objectives: 2-5 clear, measurable outcomes
+    - Common Misconceptions: 2-4 frequent misunderstandings with detailed explanations and corrections
+    - Practice Exercises: 2-4 problems of varying difficulty (beginner, intermediate, advanced) with complete solutions
+
+    ## 6. SEARCH OPTIMIZATION
         - webSearchTagline: Optimized for finding comprehensive articles and documentation
         - youtubeSearchTagline: Optimized for finding video tutorials and explanations
     
-    Focus on practical understanding and visual learning. Make visualizations engaging and interactive.
-    Keep responses concise but comprehensive. Avoid overly long explanations.
+    ## CRITICAL REQUIREMENTS:
+    - All visualizations must be complete, self-contained HTML documents
+    - No external dependencies or CDN links
+    - Must work offline and in sandboxed environments
+    - Include proper error handling and fallbacks
+    - Use modern CSS with gradients, animations, and responsive design
+    - STRICTLY PROHIBIT black or very dark backgrounds. Use only light, high-contrast, accessible backgrounds.
+    - Include loading states and smooth transitions
+    - Make all interactive elements accessible
+    - Ensure mobile compatibility and touch-friendly interfaces
+
+    ## JAVASCRIPT INTERACTIVITY EXAMPLES:
+    - Buttons that change colors, text, or trigger animations when clicked
+    - Sliders that update values and refresh the visualization in real-time
+    - Step-by-step animations that progress with user clicks
+    - Form inputs that validate and update the display
+    - Drag-and-drop elements that respond to mouse/touch events
+    - Progress bars that fill up based on user interaction
+    - State toggles (play/pause, start/stop, show/hide)
+    - Real-time calculations and updates based on user input
+
+    Focus on creating engaging, interactive visualizations that enhance learning.
+    Prioritize visual clarity and user experience over complex animations.
+    Ensure all HTML is valid and self-contained.
+    **EVERY VISUALIZATION MUST BE DYNAMIC AND RESPONSIVE TO USER INPUT.**
     `;
 
       return await generateObject({
@@ -655,7 +1147,8 @@ export default async function handler(req, res) {
       })
     ]);
 
-    const response = {
+    // Process and validate HTML in the response
+    const processedResponse = {
       ...result.object,
       youtubeResults: youtubeResults.status === 'fulfilled' ? youtubeResults.value : [],
       webResults: webResults.status === 'fulfilled' ? webResults.value : [],
@@ -665,9 +1158,61 @@ export default async function handler(req, res) {
         alternativeProblems: []
       }
     };
-    // console.log(response);
-    console.log('Main generation successful');
-    res.status(200).json(response);
+
+    // Validate and fix all HTML in visualizations
+    if (processedResponse.visualizationHtml && Array.isArray(processedResponse.visualizationHtml)) {
+      processedResponse.visualizationHtml = processedResponse.visualizationHtml.map((vis, index) => {
+        console.log(`Processing visualization ${index + 1}:`, vis.step);
+        const validatedHtml = validateAndFixHtml(vis.completeHtml);
+        
+        // Check if HTML contains interactive elements
+        const hasInteractiveElements = validatedHtml.includes('onclick') || 
+                                    validatedHtml.includes('addEventListener') || 
+                                    validatedHtml.includes('function') ||
+                                    validatedHtml.includes('button') ||
+                                    validatedHtml.includes('input');
+        
+        console.log(`Visualization ${index + 1} has interactive elements:`, hasInteractiveElements);
+        
+        return {
+          ...vis,
+          completeHtml: validatedHtml
+        };
+      });
+    }
+
+    // Validate and fix HTML in subtopics
+    if (processedResponse.subtopics && Array.isArray(processedResponse.subtopics)) {
+      processedResponse.subtopics = processedResponse.subtopics.map((subtopic, subIndex) => {
+        if (subtopic.subtopicVisualizationHtml && Array.isArray(subtopic.subtopicVisualizationHtml)) {
+          return {
+            ...subtopic,
+            subtopicVisualizationHtml: subtopic.subtopicVisualizationHtml.map((vis, visIndex) => {
+              console.log(`Processing subtopic ${subIndex + 1} visualization ${visIndex + 1}:`, vis.step);
+              const validatedHtml = validateAndFixHtml(vis.completeHtml);
+              
+              // Check if HTML contains interactive elements
+              const hasInteractiveElements = validatedHtml.includes('onclick') || 
+                                          validatedHtml.includes('addEventListener') || 
+                                          validatedHtml.includes('function') ||
+                                          validatedHtml.includes('button') ||
+                                          validatedHtml.includes('input');
+              
+              console.log(`Subtopic ${subIndex + 1} visualization ${visIndex + 1} has interactive elements:`, hasInteractiveElements);
+              
+              return {
+                ...vis,
+                completeHtml: validatedHtml
+              };
+            })
+          };
+        }
+        return subtopic;
+      });
+    }
+    console.log(processedResponse);
+    console.log('Main generation successful with HTML validation');
+    res.status(200).json(processedResponse);
   } catch (error) {
     console.error('Main generation failed after retries:', error);
     
