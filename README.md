@@ -10,8 +10,7 @@
 
 *Your Ultimate AI-Powered Learning Companion* ✨
 
-[![Demo](https://img.shields.io/badge/Live%20Demo-View%20Project-green?style=for-the-badge&logo=vercel)](https://your-demo-link.com)
-[![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
+[![Demo](https://img.shields.io/badge/Live%20Demo-View%20Project-green?style=for-the-badge&logo=vercel)](https://learn-planner.vercel.app)
 
 </div>
 
