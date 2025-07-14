@@ -314,7 +314,7 @@ function validateAndFixHtml(html) {
   const hasHtmlTag = html.includes('<html') || html.includes('<body') || html.includes('<div');
   const hasContent = html.includes('<body') || html.includes('<div') || html.includes('<h1') || html.includes('<p');
   
-  // If HTML has no content at all, return fallback
+  // If HTML has no content at all, return fallback template
   if (!hasContent) {
     console.log('HTML has no content, using fallback template');
     return `<!DOCTYPE html>
@@ -797,9 +797,12 @@ async function getFallbackResponse(topic) {
       - If you cannot generate a dynamic, interactive visualization, output: "ERROR: Visualization is not dynamic or interactive."
 
       ## EXAMPLES:
-      - For Bubble Sort: Provide a "Start" button. When clicked, animate the sorting process step by step, updating the bars and highlighting swaps. The user must be able to see the sorting in action, not just the initial and final states.
-      - For time complexity: Add a slider for ‘n’. As the user moves the slider, update the chart to show O(n^2) growth live.
-      - For space complexity: Show a bar or box that animates or updates as the user interacts (e.g., click to allocate/release memory).
+      - For Bubble Sort: Provide a "Run Code" button. When clicked, animate the sorting process step by step, updating the bars and highlighting swaps. Show the actual array being sorted with real-time updates.
+      - For time complexity: Add a "Show Working" button that demonstrates the algorithm with different input sizes and shows the actual time complexity in action.
+      - For space complexity: Show a "Run Code" button that demonstrates memory allocation and deallocation with visual feedback.
+      - For data structures: Include a "Show Working" button that demonstrates insertion, deletion, and traversal with real data.
+      - For algorithms: Provide a "Run Code" button that shows the algorithm working with step-by-step execution and visual feedback.
+      - For concepts: Include interactive buttons that demonstrate the concept in action with user input and real-time updates.
 
       ## VISUALIZATION GUIDELINES:
       - Use modern, attractive styling with CSS gradients and smooth animations
@@ -1002,7 +1005,7 @@ export default async function handler(req, res) {
       * Provide context for how each line relates to the subtopic concept
       * Include examples of what the code does with sample inputs
       * Explain any complex logic, algorithms, or data structures used in this subtopic**
-       - subtopicVisualizationHtml: 2-3 visualization steps specific to this subtopic
+    - subtopicVisualizationHtml: 1-2 visualization steps specific to this subtopic
       * Each step must have: step name, completeHtml (self-contained HTML with CSS/JS), explanation, purpose
       * CRITICAL: Each completeHtml must be a COMPLETE, VALID HTML document with:
         - Proper DOCTYPE declaration
@@ -1018,9 +1021,22 @@ export default async function handler(req, res) {
         - Mobile-friendly design
         - **STRICTLY PROHIBIT black or very dark backgrounds. Use only light, high-contrast, accessible backgrounds that work in both light and dark UI themes. Use modern, accessible color palettes. Avoid backgrounds that could cause the visualization to disappear or blend in.**
         - **Visualizations must be topic-specific, engaging, and educational, with clear labels, legends, and user guidance. No placeholders.**
+        - **MANDATORY: Include interactive buttons that demonstrate the working of the topic**
+          * Every visualization MUST include at least one "Run Code" or "Show Working" button Only Click It Should Show The Working Animations Completely So Generate The Code For Visualization Very Long To Show The Full Working Process So Give Accordingly
+             ### Visualization  SHould Be Complete Working On RUn It Must Completely Show The Working So Give Accodingly Visula View
+             ### Dont Use Black Color In The Visualization  It Is Mandotory
+             ### Show The Step By Step animation for working For example If Sorting Shows The Swaping by comparing like That It Shows Completely It Is Mandotory
+             ### This Above Is Condition For Visulizations is Applied All Visualization The Generation Completely
+            
+          * The button should trigger the actual execution/demonstration of the concept
+          * For programming topics: Show code execution with step-by-step output
+          * For algorithms: Show the algorithm working with real data and visual feedback
+          * For concepts: Show interactive demonstrations with user input and real-time updates
+          * The button should provide immediate, visible feedback showing how the topic actually works
+          * If a topic cannot be demonstrated interactively, provide a detailed explanation of why and offer alternative learning methods
 
     ## 3. VISUALIZATION COMPONENTS (MANDATORY)
-    Create 3-5 step-by-step visualization components for the main topic. Each must include:
+    Create 1-3 step-by-step visualization components for the main topic. Each must include:
     - step: Clear step name or description
     - completeHtml: COMPLETE, SELF-CONTAINED HTML file with embedded CSS and JS
     - explanation: Detailed explanation of what this visualization demonstrates
@@ -1042,9 +1058,19 @@ export default async function handler(req, res) {
     </head>
     <body>
         <!-- Interactive content with buttons, sliders, animations -->
+        <!-- MANDATORY: Include at least one "Run Code" or "Show Working" button -->
+        <button id="runButton" onclick="runCode()">Run Code</button>
+        <div id="output"></div>
         <script>
             // Complete JavaScript with error handling, animations, interactivity
             // Must include fallbacks and mobile compatibility
+            // MANDATORY: Include function to demonstrate topic working
+            function runCode() {
+                // Demonstrate the actual working of the topic
+                // Show step-by-step execution, real data processing, or concept demonstration
+                // Provide immediate visual feedback
+                // Include error handling and user guidance
+            }
             // EXAMPLE OF REQUIRED INTERACTIVITY:
             // - Event listeners (onclick, addEventListener)
             // - DOM manipulation (innerHTML, style changes, classList)
@@ -1052,23 +1078,33 @@ export default async function handler(req, res) {
             // - Real-time updates (setInterval, setTimeout)
             // - User input handling (input events, form submissions)
             // - Animation controls (start/stop, pause/resume)
+            // - Code execution and demonstration functions
         </script>
     </body>
     </html>
 
     ## ABSOLUTE REQUIREMENTS FOR VISUALIZATIONS:
     - Every visualization must have at least one visible interactive control (button, slider, or input) that the user can use to change the visualization.
+    - **MANDATORY: Every visualization MUST include a "Run Code" or "Show Working" button that demonstrates the actual working of the topic.**
     - The visualization must visibly change or animate in response to user input (e.g., bars move, chart updates, memory usage animates).
+    - The "Run Code" button should trigger the actual execution/demonstration of the concept being taught.
+    - For programming topics: Show code execution with step-by-step output and real data processing.
+    - For algorithms: Show the algorithm working with real data and visual feedback (e.g., sorting steps, search progress).
+    - For concepts: Show interactive demonstrations with user input and real-time updates.
     - If a visualization is static, missing, or does not respond to user input, OUTPUT AN ERROR MESSAGE or RETRY until a dynamic, interactive visualization is produced.
     - For sorting visualizations, always provide a "Start" or "Step" button that animates the sorting process step by step.
     - For time/space complexity, always provide a slider or input for 'n' and update the chart or memory display live as the user changes 'n'.
     - Do NOT generate static images, static bars, or single-color boxes.
     - If you cannot generate a dynamic, interactive visualization, output: "ERROR: Visualization is not dynamic or interactive."
+    - **If a topic cannot be demonstrated interactively, provide a detailed explanation of why and offer alternative learning methods.**
 
     ## EXAMPLES:
-    - For Bubble Sort: Provide a "Start" button. When clicked, animate the sorting process step by step, updating the bars and highlighting swaps. The user must be able to see the sorting in action, not just the initial and final states.
-    - For time complexity: Add a slider for ‘n’. As the user moves the slider, update the chart to show O(n^2) growth live.
-    - For space complexity: Show a bar or box that animates or updates as the user interacts (e.g., click to allocate/release memory).
+    - For Bubble Sort: Provide a "Run Code" button. When clicked, animate the sorting process step by step, updating the bars and highlighting swaps. Show the actual array being sorted with real-time updates.
+    - For time complexity: Add a "Show Working" button that demonstrates the algorithm with different input sizes and shows the actual time complexity in action.
+    - For space complexity: Show a "Run Code" button that demonstrates memory allocation and deallocation with visual feedback.
+    - For data structures: Include a "Show Working" button that demonstrates insertion, deletion, and traversal with real data.
+    - For algorithms: Provide a "Run Code" button that shows the algorithm working with step-by-step execution and visual feedback.
+    - For concepts: Include interactive buttons that demonstrate the concept in action with user input and real-time updates.
 
     ## VISUALIZATION GUIDELINES:
     - **CRITICAL: Every visualization MUST have REAL, WORKING JavaScript functionality**
