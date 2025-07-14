@@ -47,7 +47,88 @@ mermaid.initialize({
   }
 });
 
-const CodeBlock = ({ code, language = "javascript" }) => {
+// Function to detect programming language from code content
+const detectLanguage = (code) => {
+  if (!code) return 'javascript';
+  
+  const codeStr = code.toLowerCase();
+  
+  // Python patterns (check first as they're very specific)
+  if (codeStr.includes('def ') || codeStr.includes('import ') || codeStr.includes('print(') || 
+      codeStr.includes('if __name__') || codeStr.includes('self.') || codeStr.includes('class ') && codeStr.includes('def __init__')) {
+    return 'python';
+  }
+  
+  // Java patterns
+  if (codeStr.includes('public class') || codeStr.includes('public static void main') || 
+      codeStr.includes('private ') || codeStr.includes('protected ') || codeStr.includes('import java.')) {
+    return 'java';
+  }
+  
+  // C++ patterns
+  if (codeStr.includes('#include') || codeStr.includes('std::') || codeStr.includes('using namespace std')) {
+    return 'cpp';
+  }
+  
+  // C patterns
+  if (codeStr.includes('#include <stdio.h>') || codeStr.includes('#include <stdlib.h>') || 
+      codeStr.includes('int main()') || codeStr.includes('printf(') || codeStr.includes('scanf(')) {
+    return 'c';
+  }
+  
+  // PHP patterns
+  if (codeStr.includes('<?php') || codeStr.includes('<?=') || codeStr.includes('$') && codeStr.includes('function')) {
+    return 'php';
+  }
+  
+  // Ruby patterns
+  if (codeStr.includes('def ') && codeStr.includes('end') && !codeStr.includes('self.')) {
+    return 'ruby';
+  }
+  
+  // Go patterns
+  if (codeStr.includes('func ') && codeStr.includes('package main') || codeStr.includes('import "fmt"')) {
+    return 'go';
+  }
+  
+  // Rust patterns
+  if (codeStr.includes('fn ') && codeStr.includes('fn main') || codeStr.includes('let mut ')) {
+    return 'rust';
+  }
+  
+  // SQL patterns
+  if (codeStr.includes('SELECT') || codeStr.includes('INSERT') || codeStr.includes('UPDATE') || 
+      codeStr.includes('CREATE TABLE') || codeStr.includes('DROP TABLE')) {
+    return 'sql';
+  }
+  
+  // HTML patterns
+  if (codeStr.includes('<html') || codeStr.includes('<!DOCTYPE') || codeStr.includes('<head>') || codeStr.includes('<body>')) {
+    return 'html';
+  }
+  
+  // CSS patterns
+  if ((codeStr.includes('{') && codeStr.includes('}')) && 
+      (codeStr.includes('color:') || codeStr.includes('background:') || codeStr.includes('margin:') || codeStr.includes('padding:'))) {
+    return 'css';
+  }
+  
+  // TypeScript patterns
+  if (codeStr.includes('interface ') || codeStr.includes('type ') || codeStr.includes(': string') || codeStr.includes(': number')) {
+    return 'typescript';
+  }
+  
+  // JavaScript patterns (check last as it's most generic)
+  if (codeStr.includes('function') || codeStr.includes('const ') || codeStr.includes('let ') || 
+      codeStr.includes('var ') || codeStr.includes('console.log') || codeStr.includes('document.')) {
+    return 'javascript';
+  }
+  
+  // Default to generic "code" when no specific language is detected
+  return 'code';
+};
+
+const CodeBlock = ({ code, language = "code" }) => {
   // Map common language names to prism language codes
   const languageMap = {
     'java': 'java',
@@ -64,10 +145,17 @@ const CodeBlock = ({ code, language = "javascript" }) => {
     'bash': 'bash',
     'shell': 'bash',
     'typescript': 'typescript',
-    'ts': 'typescript'
+    'ts': 'typescript',
+    'php': 'php',
+    'ruby': 'ruby',
+    'go': 'go',
+    'rust': 'rust',
+    'code': 'text' // Generic code highlighting
   };
 
-  const prismLanguage = languageMap[language.toLowerCase()] || language;
+  // Auto-detect language if not specified or if it's a generic language
+  const detectedLanguage = detectLanguage(code);
+  const prismLanguage = languageMap[detectedLanguage.toLowerCase()] || detectedLanguage;
 
   return (
     <Highlight
@@ -862,18 +950,49 @@ export default function TopicDetailsPage() {
                           
                           {example.subexample && (
                             <div className="mb-4">
-                              <CodeBlock code={example.subexample} language="java" />
+                              <CodeBlock code={example.subexample} />
                             </div>
                           )}
                           {example.exmexplain && example.exmexplain.length > 0 && (
-                            <ul className="mt-4 space-y-2">
-                              {example.exmexplain.map((point, idx) => (
-                                <li key={idx} className="flex items-start gap-2 text-gray-300">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-2" />
-                                  {point}
-                                </li>
-                              ))}
-                            </ul>
+                            <div className="mt-4 space-y-4">
+                              <h4 className="text-lg font-semibold text-indigo-400 flex items-center gap-2">
+                                <Code className="w-5 h-5" />
+                                Code Explanation
+                              </h4>
+                              <div className="space-y-3">
+                                {example.exmexplain.map((explanation, idx) => {
+                                  // Handle both new format (object) and old format (string)
+                                  if (typeof explanation === 'object' && explanation.lineNumber) {
+                                    // New format
+                                    return (
+                                      <div key={idx} className="bg-gray-900/30 rounded-lg p-4 border border-gray-700">
+                                        <div className="flex items-start gap-3 mb-2">
+                                          <div className="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-semibold text-sm">
+                                            {explanation.lineNumber}
+                                          </div>
+                                          <div className="flex-1">
+                                                                                                                        <div className="mb-2">
+                                              <CodeBlock code={explanation.code} />
+                                            </div>
+                                            <p className="text-gray-300 text-sm leading-relaxed">
+                                              {explanation.explanation}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  } else {
+                                    // Old format - string array
+                                    return (
+                                      <div key={idx} className="flex items-start gap-2 text-gray-300">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-2" />
+                                        <span>{explanation}</span>
+                                      </div>
+                                    );
+                                  }
+                                })}
+                              </div>
+                            </div>
                           )}
                         </motion.div>
                       )}
@@ -897,7 +1016,7 @@ export default function TopicDetailsPage() {
                 </h2>
                 <h3 className="text-lg font-semibold text-gray-300 mb-4">{content.code.topicofcode}</h3>
                 <div className="mb-6">
-                  <CodeBlock code={content.code.tcode} language="java" />
+                  <CodeBlock code={content.code.tcode} />
                 </div>
                 {content.define && content.define.length > 0 && (
                   <div className="space-y-4">
@@ -922,16 +1041,41 @@ export default function TopicDetailsPage() {
                           transition={{ duration: 0.2 }}
                           className="space-y-4"
                         >
-                          <ul className="space-y-4">
-                            {content.define.map((def, index) => (
-                              <li key={index} className="bg-gray-900/30 rounded-lg p-4 border border-gray-700">
-                                <div className="mb-4">
-                                  <CodeBlock code={def.code} language="java" />
-                                </div>
-                                <p className="text-gray-300">{def.explain}</p>
-                              </li>
-                            ))}
-                          </ul>
+                          <div className="space-y-4">
+                            {content.define.map((def, index) => {
+                              // Handle both new format (object) and old format (string)
+                              if (typeof def === 'object' && def.lineNumber) {
+                                // New format
+                                return (
+                                  <div key={index} className="bg-gray-900/30 rounded-lg p-4 border border-gray-700">
+                                    <div className="flex items-start gap-3 mb-3">
+                                      <div className="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-semibold text-sm">
+                                        {def.lineNumber}
+                                      </div>
+                                      <div className="flex-1">
+                                        <div className="mb-3">
+                                          <CodeBlock code={def.code} />
+                                        </div>
+                                        <p className="text-gray-300 text-sm leading-relaxed">
+                                          {def.explanation}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              } else {
+                                // Old format - string array
+                                return (
+                                  <div key={index} className="bg-gray-900/30 rounded-lg p-4 border border-gray-700">
+                                    <div className="mb-4">
+                                      <CodeBlock code={def.code} />
+                                    </div>
+                                    <p className="text-gray-300">{def.explain}</p>
+                                  </div>
+                                );
+                              }
+                            })}
+                          </div>
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -1102,7 +1246,7 @@ export default function TopicDetailsPage() {
                               <div className="bg-gray-800/50 p-4 rounded-lg">
                                 <h4 className="text-sm font-medium text-blue-400 mb-2">Solution:</h4>
                                 <div className="mb-4">
-                                  <CodeBlock code={exercise.solution} language="java" />
+                                  <CodeBlock code={exercise.solution} />
                                 </div>
                               </div>
                               <div className="bg-gray-800/50 p-4 rounded-lg">

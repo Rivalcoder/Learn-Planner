@@ -6,13 +6,16 @@ import axios from 'axios';
 
 const topicSchema = z.object({
   topic: z.string().max(100, "Topic must not exceed 100 characters"),
-  describe: z.string()
-    .min(50, "Description must be at least 50 words"),
+  describe: z.string(),
   subtopics: z.array(z.object({
     subtop: z.string(),
     subexplain: z.string().min(50),
     subexample: z.string(),
-    exmexplain: z.array(z.string()),
+    exmexplain: z.array(z.object({
+      lineNumber: z.number().describe("Line number in the code (1, 2, 3, etc.)"),
+      code: z.string().describe("The exact code line as it appears in the subexample"),
+      explanation: z.string().describe("Detailed explanation covering what the line does, variable declarations, function calls, control flow, input/output operations, error handling, performance considerations, and best practices")
+    })),
     subtopicVisualizationHtml: z.array(z.object({
       step: z.string(),
       completeHtml: z.string().describe("Complete, self-contained HTML file with embedded CSS and JS that can be rendered directly in a browser"),
@@ -27,8 +30,9 @@ const topicSchema = z.object({
     tcode: z.string()
   }).optional(),
   define: z.array(z.object({
-    code: z.string(),
-    explain: z.string()
+    lineNumber: z.number().describe("Line number in the code (1, 2, 3, etc.)"),
+    code: z.string().describe("The exact code line as it appears in the example"),
+    explanation: z.string().describe("Detailed explanation covering what the line does, variable declarations, function calls, control flow, input/output operations, error handling, performance considerations, and best practices")
   })).default([]),
   visualizationHtml: z.array(z.object({
     step: z.string(),
@@ -53,7 +57,7 @@ const topicSchema = z.object({
     explanation: z.string(),
     correction: z.string()
   }))
-    .min(2, "Must provide at least 2 common misconceptions")
+    .min(1, "Must provide at least 1 common misconception")
     .max(4, "Cannot exceed 4 common misconceptions")
     .describe("Common mistakes or misunderstandings about this topic"),
   practiceExercises: z.array(z.object({
@@ -96,6 +100,12 @@ const fallbackSchema = z.object({
   subtopics: z.array(z.object({
     subtop: z.string(),
     subexplain: z.string(),
+    subexample: z.string().optional(),
+    exmexplain: z.array(z.object({
+      lineNumber: z.number().describe("Line number in the code (1, 2, 3, etc.)"),
+      code: z.string().describe("The exact code line as it appears in the subexample"),
+      explanation: z.string().describe("Detailed explanation covering what the line does, variable declarations, function calls, control flow, input/output operations, error handling, performance considerations, and best practices")
+    })).optional(),
     subtopicVisualizationHtml: z.array(z.object({
       step: z.string(),
       completeHtml: z.string().describe("Complete, self-contained HTML file with embedded CSS and JS that can be rendered directly in a browser"),
@@ -380,7 +390,7 @@ function validateAndFixHtml(html) {
 }
 
 // Retry function with exponential backoff and timeout
-async function retryWithBackoff(fn, maxRetries = 3, baseDelay = 1000, timeout = 30000) {
+async function retryWithBackoff(fn, maxRetries = 3, baseDelay = 1000, timeout = 60000) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       // Add timeout to prevent hanging
@@ -408,7 +418,7 @@ async function retryWithBackoff(fn, maxRetries = 3, baseDelay = 1000, timeout = 
 async function fetchYouTubeVideos(query) {
   try {
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('YouTube API timeout')), 10000);
+      setTimeout(() => reject(new Error('YouTube API timeout')), 15000);
     });
     
     const responsePromise = axios.get('https://www.googleapis.com/youtube/v3/search', {
@@ -447,7 +457,7 @@ async function fetchWebResults(query) {
 
   try {
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Web search timeout')), 10000);
+      setTimeout(() => reject(new Error('Web search timeout')), 15000);
     });
     
     const responsePromise = axios.get('https://www.googleapis.com/customsearch/v1', {
@@ -961,12 +971,11 @@ export default async function handler(req, res) {
     ## 1. TOPIC & DESCRIPTION
     - Topic: Clear, concise title (max 50 characters)
     - Description: Detailed explanation (min 100 words) covering:
-      * Core concepts and fundamental principles
-      * Real-world applications and industry relevance
-      * Why this topic is important in modern technology/industry
-      * Prerequisites and learning path context
-
+       * Give a Good Explanation of the Topic User Can Understand Even Beginner
+       * Give Correct Explanation for That Topic
+       * 
     ## 2. SUBTOPIC GENERATION (MANDATORY)
+    **CRITICAL: You MUST generate subtopics for every topic. This is a required field that cannot be empty.**
     Generate 2-4 subtopics for complex topics, 1-2 for simpler topics. Each subtopic must include:
     - subtop: Clear, specific subtopic name
     - subexplain: Comprehensive explanation (min 80 words) covering:
@@ -975,7 +984,24 @@ export default async function handler(req, res) {
       * Common challenges and solutions
       * Relationship to main topic
     - subexample: Working code example for programming topics, detailed example for others
-    - exmexplain: **Provide a line-by-line explanation for every line of code in subexample. Output as an array or object mapping each code line to its explanation. Explanations must cover variable declarations, input/output, and logic, and be detailed and beginner-friendly.**
+    - exmexplain: **IMPORTANT: Provide a detailed line-by-line explanation for every line of code in subexample. Output this as an array of objects with the following structure:
+      * Each object should have: { lineNumber: number, code: string, explanation: string }
+      * lineNumber: The line number in the code (1, 2, 3, etc.)
+      * code: The exact code line as it appears in the subexample
+      * explanation: Detailed explanation covering:
+        - What the line does and why it's needed for this subtopic
+        - Variable declarations and their purpose in the context
+        - Function calls and their parameters
+        - Control flow (if/else, loops, etc.)
+        - Input/output operations
+        - Error handling and edge cases
+        - Performance considerations
+        - Best practices and conventions
+      * Explanations should be beginner-friendly and educational
+      * Cover every single line of code, including comments and whitespace
+      * Provide context for how each line relates to the subtopic concept
+      * Include examples of what the code does with sample inputs
+      * Explain any complex logic, algorithms, or data structures used in this subtopic**
        - subtopicVisualizationHtml: 2-3 visualization steps specific to this subtopic
       * Each step must have: step name, completeHtml (self-contained HTML with CSS/JS), explanation, purpose
       * CRITICAL: Each completeHtml must be a COMPLETE, VALID HTML document with:
@@ -1079,13 +1105,36 @@ export default async function handler(req, res) {
       * Include proper syntax highlighting comments
       * Add comprehensive error handling
       * Include input validation and edge cases
-    - Code Explanation: **Provide a line-by-line explanation for every line of code. Output as an array or object mapping each code line to its explanation. Explanations must cover variable declarations, input/output, and logic, and be detailed and beginner-friendly.**
+    - **CODE EXPLANATION IS HIGHLY RECOMMENDED**: Provide detailed line-by-line explanations for ALL code examples and If Long code Give 2-4 lines In One and Give Explanation Dont Generate For Line by Line By Giving Large so If Large Give With Bunch of Code And With Its Explanation and Code and Explanation must Come From Above Code Generated 
+      * Include line numbers, exact code, and detailed explanations
+      * Cover variable declarations, function calls, control flow, and logic
+      * Provide context for how each line contributes to the overall solution
+      * Make explanations beginner-friendly and educational
+      * Include examples of what the code does with sample inputs
+    - Code Explanation: **IMPORTANT: Provide a detailed line-by-line explanation for every line of code in the code example. Output this as an array of objects with the following structure:
+      * Each object should have: { lineNumber: number, code: string, explanation: string }
+      * lineNumber: The line number in the code (1, 2, 3, etc.)
+      * code: The exact code line as it appears in the example
+      * explanation: Detailed explanation covering:
+        - What the line does and why it's needed
+        - Variable declarations and their purpose
+        - Function calls and their parameters
+        - Control flow (if/else, loops, etc.)
+        - Input/output operations
+        - Error handling and edge cases
+        - Performance considerations
+        - Best practices and conventions
+      * Explanations should be beginner-friendly and educational
+      * Cover every single line of code, including comments and whitespace
+      * Provide context for how each line relates to the overall algorithm/concept
+      * Include examples of what the code does with sample inputs
+      * Explain any complex logic, algorithms, or data structures used**
 
     ## 5. LEARNING FRAMEWORK
     - Importance: 3-5 points about why this topic matters in industry
     - Prerequisites: 1-5 fundamental concepts needed before learning this topic
     - Learning Objectives: 2-5 clear, measurable outcomes
-    - Common Misconceptions: 2-4 frequent misunderstandings with detailed explanations and corrections
+    - Common Misconceptions: **MANDATORY - Generate EXACTLY 2-4 frequent misunderstandings with detailed explanations and corrections. This field is required and must contain at least 2 misconceptions.**
     - Practice Exercises: 2-4 problems of varying difficulty (beginner, intermediate, advanced) with complete solutions
 
     ## 6. SEARCH OPTIMIZATION
@@ -1102,6 +1151,40 @@ export default async function handler(req, res) {
     - Include loading states and smooth transitions
     - Make all interactive elements accessible
     - Ensure mobile compatibility and touch-friendly interfaces
+    - **CODE EXPLANATIONS ARE HIGHLY RECOMMENDED**: Every code example should include detailed line-by-line explanations
+        - **COMMON MISCONCEPTIONS ARE MANDATORY**: You MUST generate at least 2 common misconceptions for every topic. This is a required field that cannot be empty.
+    - **SUBTOPICS ARE MANDATORY**: You MUST generate at least 1-2 subtopics for every topic. This is a required field that cannot be empty.
+      * Example structure for common misconceptions:
+        [
+          {
+            "misconception": "Arrays and linked lists are the same thing",
+            "explanation": "Many beginners think arrays and linked lists are interchangeable, but they have different memory layouts and performance characteristics.",
+            "correction": "Arrays store elements in contiguous memory with O(1) access, while linked lists use pointers with O(n) access but dynamic sizing."
+          },
+          {
+            "misconception": "Big O notation only applies to time complexity",
+            "explanation": "Students often focus only on time complexity and ignore space complexity considerations.",
+            "correction": "Big O notation applies to both time and space complexity, and both are important for algorithm analysis."
+          }
+        ]
+    * Example structure for code explanations:
+        [
+          {
+            "lineNumber": 1,
+            "code": "function bubbleSort(arr) {",
+            "explanation": "Define a function named bubbleSort that takes an array parameter. This is the entry point of our sorting algorithm."
+          },
+          {
+            "lineNumber": 2,
+            "code": "  const n = arr.length;",
+            "explanation": "Store the length of the array in variable 'n'. This is used to control the number of iterations in our sorting loops."
+          },
+          {
+            "lineNumber": 3,
+            "code": "  for (let i = 0; i < n - 1; i++) {",
+            "explanation": "Outer loop that runs n-1 times. Each iteration places the largest unsorted element in its correct position."
+          }
+        ]
 
     ## JAVASCRIPT INTERACTIVITY EXAMPLES:
     - Buttons that change colors, text, or trigger animations when clicked
@@ -1158,6 +1241,110 @@ export default async function handler(req, res) {
         alternativeProblems: []
       }
     };
+
+    // Ensure we have at least 2 common misconceptions
+    if (!processedResponse.commonMisconceptions || processedResponse.commonMisconceptions.length < 2) {
+      console.warn('Not enough common misconceptions generated, adding fallback misconceptions');
+      const fallbackMisconceptions = [
+        {
+          misconception: `Beginners often think ${topic} is too complex to learn`,
+          explanation: `Many students get overwhelmed by the complexity and think they need to understand everything at once.`,
+          correction: `${topic} can be learned step by step. Start with the basics and gradually build up your understanding.`
+        },
+        {
+          misconception: `${topic} is only useful for advanced programmers`,
+          explanation: `Students often believe this topic is only relevant for experienced developers or specific use cases.`,
+          correction: `${topic} has practical applications at all skill levels and is fundamental to understanding broader programming concepts.`
+        }
+      ];
+      
+      if (!processedResponse.commonMisconceptions) {
+        processedResponse.commonMisconceptions = fallbackMisconceptions;
+      } else {
+        processedResponse.commonMisconceptions = [
+          ...processedResponse.commonMisconceptions,
+          ...fallbackMisconceptions.slice(0, 2 - processedResponse.commonMisconceptions.length)
+        ];
+      }
+    }
+
+    // Ensure we have at least 1-2 subtopics
+    if (!processedResponse.subtopics || processedResponse.subtopics.length === 0) {
+      console.warn('No subtopics generated, adding fallback subtopics');
+      const fallbackSubtopics = [
+        {
+          subtop: `Basic ${topic} Concepts`,
+          subexplain: `This subtopic covers the fundamental concepts and principles of ${topic}. Understanding these basics is essential before moving to more advanced topics. We'll explore the core ideas, terminology, and foundational knowledge that every learner needs to master.`,
+          subexample: `// Basic example for ${topic}\nconsole.log("Hello ${topic}");\n// This demonstrates the basic syntax`,
+          exmexplain: [
+            {
+              lineNumber: 1,
+              code: `// Basic example for ${topic}`,
+              explanation: `This comment explains what this code example demonstrates for the ${topic} concept.`
+            },
+            {
+              lineNumber: 2,
+              code: `console.log("Hello ${topic}");`,
+              explanation: `This line demonstrates basic output functionality and shows how to display information related to ${topic}.`
+            },
+            {
+              lineNumber: 3,
+              code: `// This demonstrates the basic syntax`,
+              explanation: `This comment provides context about what the previous line of code shows about the ${topic} syntax.`
+            }
+          ],
+          subtopicVisualizationHtml: [
+            {
+              step: `Introduction to ${topic}`,
+              completeHtml: `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${topic} Introduction</title><style>body{font-family:sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#333;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}.container{background:rgba(255,255,255,0.95);padding:30px;border-radius:15px;box-shadow:0 10px 30px rgba(0,0,0,0.2);text-align:center;max-width:500px}h1{color:#4a5568;margin-bottom:20px}p{color:#718096;line-height:1.6}.btn{background:linear-gradient(45deg,#667eea,#764ba2);color:white;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:16px;transition:all 0.3s ease;margin:10px}.btn:hover{transform:translateY(-2px);box-shadow:0 5px 15px rgba(0,0,0,0.2)}</style></head><body><div class="container"><h1>Welcome to ${topic}</h1><p>This visualization introduces the basic concepts of ${topic}. Click the button below to see an interactive demonstration.</p><button class="btn" onclick="showDemo()">Start Demo</button><div id="demo" style="margin-top:20px;padding:20px;background:rgba(102,126,234,0.1);border-radius:8px;display:none"><p>Interactive ${topic} demonstration will appear here!</p></div></div><script>function showDemo(){document.getElementById('demo').style.display='block';document.querySelector('.btn').textContent='Demo Active';}</script></body></html>`,
+              explanation: `This visualization introduces the basic concepts of ${topic} in an interactive way.`,
+              purpose: `To provide a gentle introduction to ${topic} concepts and engage learners with interactive elements.`
+            }
+          ]
+        },
+        {
+          subtop: `Advanced ${topic} Applications`,
+          subexplain: `This subtopic explores more advanced applications and real-world uses of ${topic}. We'll dive deeper into complex scenarios, optimization techniques, and practical implementations that demonstrate the full power and versatility of ${topic} in modern development.`,
+          subexample: `// Advanced ${topic} example\nfunction advanced${topic}() {\n  // Complex implementation\n  return "Advanced ${topic} functionality";\n}`,
+          exmexplain: [
+            {
+              lineNumber: 1,
+              code: `// Advanced ${topic} example`,
+              explanation: `This comment indicates that this code demonstrates advanced concepts of ${topic}.`
+            },
+            {
+              lineNumber: 2,
+              code: `function advanced${topic}() {`,
+              explanation: `This defines a function that demonstrates advanced ${topic} functionality and techniques.`
+            },
+            {
+              lineNumber: 3,
+              code: `  // Complex implementation`,
+              explanation: `This comment indicates where complex ${topic} logic would be implemented.`
+            },
+            {
+              lineNumber: 4,
+              code: `  return "Advanced ${topic} functionality";`,
+              explanation: `This line returns a result that demonstrates the advanced ${topic} capabilities.`
+            },
+            {
+              lineNumber: 5,
+              code: `}`,
+              explanation: `This closes the function definition for the advanced ${topic} example.`
+            }
+          ],
+          subtopicVisualizationHtml: [
+            {
+              step: `Advanced ${topic} Visualization`,
+              completeHtml: `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Advanced ${topic}</title><style>body{font-family:sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#333;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}.container{background:rgba(255,255,255,0.95);padding:30px;border-radius:15px;box-shadow:0 10px 30px rgba(0,0,0,0.2);text-align:center;max-width:500px}h1{color:#4a5568;margin-bottom:20px}p{color:#718096;line-height:1.6}.btn{background:linear-gradient(45deg,#667eea,#764ba2);color:white;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:16px;transition:all 0.3s ease;margin:10px}.btn:hover{transform:translateY(-2px);box-shadow:0 5px 15px rgba(0,0,0,0.2)}</style></head><body><div class="container"><h1>Advanced ${topic}</h1><p>This visualization demonstrates advanced ${topic} concepts and applications.</p><button class="btn" onclick="showAdvanced()">Show Advanced Demo</button><div id="advanced" style="margin-top:20px;padding:20px;background:rgba(102,126,234,0.1);border-radius:8px;display:none"><p>Advanced ${topic} demonstration with complex interactions!</p></div></div><script>function showAdvanced(){document.getElementById('advanced').style.display='block';document.querySelector('.btn').textContent='Advanced Demo Active';}</script></body></html>`,
+              explanation: `This visualization demonstrates advanced ${topic} concepts with interactive elements.`,
+              purpose: `To showcase complex ${topic} applications and provide hands-on learning experience.`
+            }
+          ]
+        }
+      ];
+      processedResponse.subtopics = fallbackSubtopics;
+    }
 
     // Validate and fix all HTML in visualizations
     if (processedResponse.visualizationHtml && Array.isArray(processedResponse.visualizationHtml)) {
