@@ -626,12 +626,41 @@ const cleanupCache = () => {
 // Initialize cache from localStorage
 loadCacheFromStorage();
 
+// Migrate existing cache entries to use normalized keys
+const migrateCacheKeys = () => {
+  const entries = Array.from(contentCache.entries());
+  const migratedCache = new Map();
+  
+  entries.forEach(([key, value]) => {
+    const normalizedKey = key.trim().toLowerCase();
+    migratedCache.set(normalizedKey, value);
+  });
+  
+  contentCache.clear();
+  migratedCache.forEach((value, key) => {
+    contentCache.set(key, value);
+  });
+  
+  saveCacheToStorage();
+};
+
+// Run migration if cache has entries
+if (contentCache.size > 0) {
+  migrateCacheKeys();
+}
+
 export default function TopicDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [content, setContent] = useState(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [loadedFromCache, setLoadedFromCache] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState('');
+  const [notificationType, setNotificationType] = useState('success');
+  const [restoredFromHistory, setRestoredFromHistory] = useState(false);
   const searchParams = useSearchParams();
   const topic = searchParams.get("find");
   const [click, setClick] = useState(null);
@@ -639,17 +668,169 @@ export default function TopicDetailsPage() {
 
   useEffect(() => {
     if (topic) {
+      // First, try to restore from saved history if not in cache
+      restoreFromSavedHistory(topic);
       fetchTopicDetails(topic, false);
+      checkIfSaved(topic);
     }
   }, [topic]);
 
+  // Show notification
+  const showNotificationMessage = (message, type = 'success') => {
+    setNotificationMessage(message);
+    setNotificationType(type);
+    setShowNotification(true);
+    setTimeout(() => setShowNotification(false), 3000);
+  };
+
+  // Restore content from saved history to cache
+  const restoreFromSavedHistory = (topicName) => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const savedTopics = JSON.parse(localStorage.getItem('savedTopics') || '[]');
+        const normalizedTopic = topicName.trim().toLowerCase();
+        
+        // Find the saved topic (try multiple matching strategies)
+        const savedTopic = savedTopics.find(item => 
+          item.topic.toLowerCase() === normalizedTopic || 
+          item.topic.toLowerCase() === topicName.toLowerCase() ||
+          item.topic.toLowerCase().includes(normalizedTopic) ||
+          normalizedTopic.includes(item.topic.toLowerCase())
+        );
+        
+        if (savedTopic && savedTopic.content) {
+          // Check if it's already in cache
+          const cacheKey = contentCache.has(topicName) ? topicName : 
+                          contentCache.has(normalizedTopic) ? normalizedTopic : null;
+          
+          if (!cacheKey) {
+            // Restore to cache with both original and normalized keys for better compatibility
+            contentCache.set(normalizedTopic, savedTopic.content);
+            if (topicName !== normalizedTopic) {
+              contentCache.set(topicName, savedTopic.content);
+            }
+            saveCacheToStorage();
+            setRestoredFromHistory(true);
+            showNotificationMessage('Content restored from saved history!', 'success');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error restoring from saved history:', error);
+    }
+  };
+
+  // Check if current topic is already saved
+  const checkIfSaved = (topicName) => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const savedTopics = JSON.parse(localStorage.getItem('savedTopics') || '[]');
+        const normalizedTopic = topicName.trim().toLowerCase();
+        const isAlreadySaved = savedTopics.some(item => 
+          item.topic.toLowerCase() === normalizedTopic
+        );
+        setIsSaved(isAlreadySaved);
+      }
+    } catch (error) {
+      console.error('Error checking saved status:', error);
+    }
+  };
+
+  // Save current topic to history
+  const handleSaveToHistory = async () => {
+    if (!content || !topic) return;
+    
+    setIsSaving(true);
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const savedTopics = JSON.parse(localStorage.getItem('savedTopics') || '[]');
+        const normalizedTopic = topic.trim().toLowerCase();
+        
+        // Check if already saved
+        const existingIndex = savedTopics.findIndex(item => 
+          item.topic.toLowerCase() === normalizedTopic
+        );
+        
+        const saveData = {
+          topic: topic,
+          content: content,
+          savedAt: new Date().toISOString(),
+          description: content.describe || content.description || 'No description available'
+        };
+        
+        if (existingIndex >= 0) {
+          // Update existing entry
+          savedTopics[existingIndex] = saveData;
+          showNotificationMessage('Topic updated in saved history!', 'success');
+        } else {
+          // Add new entry
+          savedTopics.unshift(saveData); // Add to beginning
+          showNotificationMessage('Topic saved to history!', 'success');
+        }
+        
+        // Keep only last 50 saved items
+        if (savedTopics.length > 50) {
+          savedTopics.splice(50);
+        }
+        
+        localStorage.setItem('savedTopics', JSON.stringify(savedTopics));
+        setIsSaved(true);
+      }
+    } catch (error) {
+      console.error('Error saving to history:', error);
+      showNotificationMessage('Failed to save topic. Please try again.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Remove from saved history
+  const handleRemoveFromHistory = () => {
+    if (!topic) return;
+    
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const savedTopics = JSON.parse(localStorage.getItem('savedTopics') || '[]');
+        const normalizedTopic = topic.trim().toLowerCase();
+        
+        const filteredTopics = savedTopics.filter(item => 
+          item.topic.toLowerCase() !== normalizedTopic
+        );
+        
+        localStorage.setItem('savedTopics', JSON.stringify(filteredTopics));
+        setIsSaved(false);
+        showNotificationMessage('Topic removed from saved history!', 'success');
+      }
+    } catch (error) {
+      console.error('Error removing from history:', error);
+      showNotificationMessage('Failed to remove topic. Please try again.', 'error');
+    }
+  };
+
+
+
   const fetchTopicDetails = async (topicName, forceRegenerate = false) => {
-    // Check cache first (unless regenerating)
-    if (!forceRegenerate && contentCache.has(topicName)) {
-      setContent(contentCache.get(topicName));
-      setLoading(false);
-      setLoadedFromCache(true);
-      return;
+    // Normalize the topic name for consistent cache keys
+    const normalizedTopicName = topicName.trim().toLowerCase();
+    
+    // Check cache first (unless regenerating) - try both original and normalized keys
+    const cacheKey = contentCache.has(topicName) ? topicName : 
+                    contentCache.has(normalizedTopicName) ? normalizedTopicName : null;
+    
+    if (!forceRegenerate && cacheKey) {
+      const cachedData = contentCache.get(cacheKey);
+      
+      // Validate that cached data is not empty or corrupted
+      if (cachedData && typeof cachedData === 'object' && Object.keys(cachedData).length > 0) {
+        setContent(cachedData);
+        setLoading(false);
+        setLoadedFromCache(true);
+        return;
+      } else {
+        // Remove corrupted cache entry
+        contentCache.delete(cacheKey);
+        saveCacheToStorage();
+      }
     }
 
     setLoading(true);
@@ -672,14 +853,16 @@ export default function TopicDetailsPage() {
 
       const data = await response.json();
       
-      // Cache the result
-      contentCache.set(topicName, data);
+      // Cache the result using normalized key for consistency
+      const normalizedTopicName = topicName.trim().toLowerCase();
+      contentCache.set(normalizedTopicName, data);
       
       // Clean up old entries and save to localStorage
       cleanupCache();
       
       setContent(data);
     } catch (err) {
+      console.error('Error fetching topic details:', err);
       setError(err.message || "An unexpected error occurred.");
     } finally {
       setLoading(false);
@@ -760,6 +943,32 @@ export default function TopicDetailsPage() {
       <Head>
         <title>{content?.topic ? `${content.topic} - Resource Details` : `${topic || 'Topic'} - Ai-Learn`}</title>
       </Head>
+      
+      {/* Notification Toast */}
+      <AnimatePresence>
+        {showNotification && (
+          <motion.div
+            initial={{ opacity: 0, y: -50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -50, scale: 0.9 }}
+            className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg border ${
+              notificationType === 'success' 
+                ? 'bg-green-600 text-white border-green-500' 
+                : 'bg-red-600 text-white border-red-500'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {notificationType === 'success' ? (
+                <CheckCircle className="w-5 h-5" />
+              ) : (
+                <XCircle className="w-5 h-5" />
+              )}
+              <span className="font-medium">{notificationMessage}</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
       <div className="max-w-5xl mx-auto">
         {content && (
           <motion.div 
@@ -786,28 +995,90 @@ export default function TopicDetailsPage() {
                     <span className="text-xs text-gray-500 ml-2">
                       ({contentCache.size} cached)
                     </span>
-                  </div>
-                  <button
-                    onClick={handleRegenerate}
-                    disabled={isRegenerating}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
-                      isRegenerating
-                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                        : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:scale-105 shadow-lg hover:shadow-xl'
-                    }`}
-                  >
-                    {isRegenerating ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Regenerating...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4" />
-                        Regenerate
-                      </>
+                    {loadedFromCache && (
+                      <span className="text-xs text-blue-400 ml-2">
+                        ✓ Auto-loaded
+                      </span>
                     )}
+                    {restoredFromHistory && (
+                      <span className="text-xs text-purple-400 ml-2">
+                        📚 From History
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* View Saved History Button */}
+                  <button
+                    onClick={() => {
+                      if (typeof window !== 'undefined') {
+                        const savedTopics = JSON.parse(localStorage.getItem('savedTopics') || '[]');
+                        if (savedTopics.length > 0) {
+                          // Navigate to saved history page
+                          window.location.href = '/saved-history';
+                        } else {
+                          alert('No saved topics yet. Save some topics to see them here!');
+                        }
+                      }
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg font-medium bg-purple-600 hover:bg-purple-700 text-white text-sm transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    History
                   </button>
+                  <div className="flex items-center gap-2">
+                    {/* Save to History Button */}
+                    <button
+                      onClick={isSaved ? handleRemoveFromHistory : handleSaveToHistory}
+                      disabled={isSaving}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+                        isSaving
+                          ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                          : isSaved
+                          ? 'bg-green-600 hover:bg-green-700 text-white hover:scale-105 shadow-lg hover:shadow-xl'
+                          : 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105 shadow-lg hover:shadow-xl'
+                      }`}
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : isSaved ? (
+                        <>
+                          <CheckCircle className="w-4 h-4" />
+                          Saved
+                        </>
+                      ) : (
+                        <>
+                          <Star className="w-4 h-4" />
+                          Save
+                        </>
+                      )}
+                    </button>
+
+                    {/* Regenerate Button */}
+                    <button
+                      onClick={handleRegenerate}
+                      disabled={isRegenerating}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+                        isRegenerating
+                          ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                          : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:scale-105 shadow-lg hover:shadow-xl'
+                      }`}
+                    >
+                      {isRegenerating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Regenerating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          Regenerate
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>
